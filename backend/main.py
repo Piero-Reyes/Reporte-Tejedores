@@ -26,6 +26,9 @@ from pydantic import BaseModel
 
 load_dotenv()
 
+# Se importa despues de load_dotenv(): correo.py lee su config del entorno al importarse.
+import correo  # noqa: E402
+
 DB_URL = os.getenv("SUPABASE_DB_URL")
 if not DB_URL:
     raise RuntimeError("Falta SUPABASE_DB_URL en .env")
@@ -72,7 +75,7 @@ def db():
 
 # ---------------------------------------------------------------- auth
 
-# Identico a _hash_clave/_verif_clave del backend de OC_Hilo (10.0.1.13:8010).
+# Identico a _hash_clave/_verif_clave del backend de OC_Hilo (el ERP interno).
 # pbkdf2-sha256, 100k iteraciones, formato 'salt_hex$hash_hex' (97 chars).
 # Debe quedarse igual: una cuenta creada alla tiene que validar aca y viceversa.
 PBKDF2_ITER = 100_000
@@ -529,7 +532,7 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
                 for r in conn.execute(
                     f"""with yo as (select %(taller)s::text as taller),
                         {SQL_SUBORDENES}
-                        select subos, despachado from subordenes""",
+                        select subos, despachado, os, tejido, ancho from subordenes""",
                     {"taller": taller},
                 ).fetchall()
             }
@@ -551,4 +554,38 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
                      None, 1 if f.finalizado else 0, vez, taller),
                 )
 
-    return {"ok": True, "vez": vez, "filas": len(req.filas)}
+        # Aviso al equipo de Mecsa. Fuera de la transaccion: el reporte ya esta
+        # guardado y el correo no debe poder tumbarlo.
+        nombre = conn.execute(
+            """select proveedor_tejeduria n from guia_os
+                where left(upper(orden),3) = %s and coalesce(proveedor_tejeduria,'') <> ''
+                group by 1 order by count(*) desc limit 1""",
+            (taller,),
+        ).fetchone()
+        asignadas = conn.execute(
+            f"""with yo as (select %(taller)s::text as taller),
+                {SQL_SUBORDENES}
+                select count(*) n from subordenes""",
+            {"taller": taller},
+        ).fetchone()["n"]
+
+    # Solo se informan las lineas con algo reportado: las vacias no dicen nada.
+    filas_correo = [
+        {"os": validas[f.subos]["os"], "tejido": validas[f.subos]["tejido"],
+         "ancho": validas[f.subos]["ancho"], "rollos": f.rollos, "peso": f.peso}
+        for f in req.filas
+        if f.rollos is not None or f.peso is not None
+    ]
+
+    aviso = correo.enviar_reporte(
+        nombre_taller=(nombre["n"] if nombre else taller),
+        vez=vez,
+        cuando=datetime.now(),
+        filas=filas_correo,
+        total_asignadas=asignadas,
+    )
+    if not aviso["enviado"]:
+        # No se falla el request: el reporte ya se guardo. Pero queda dicho.
+        print(f"[correo] reporte #{vez} de {taller} NO enviado: {aviso['motivo']}")
+
+    return {"ok": True, "vez": vez, "filas": len(req.filas), "correo": aviso}

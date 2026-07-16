@@ -34,7 +34,7 @@ tejedor, y un usuario nuevo exige contraseña.
 
 ## Cómo encaja con lo que ya existe
 
-No toca el backend de OC_Hilo (`10.0.1.13:8010`). Comparte solo la base de datos:
+No toca el backend de OC_Hilo (el ERP interno). Comparte solo la base de datos:
 
 | tabla | rol |
 |---|---|
@@ -59,7 +59,7 @@ peso_con_mas_rep = guia_os.consumo + peso_reportado     (acumula sobre lo despac
 ## Decisiones que vale la pena conocer
 
 - **El `taller` sale del token, nunca del cliente.** Era el agujero del AppScript
-  (`?tej=FAM&identifier=123456789` en la URL, editable) y de `getStockTejedor`
+  (`?tej=FAM&identifier=...` en la URL, editable) y de `getStockTejedor`
   (acepta cualquier `taller` en el body, incluso sin token válido).
 - **Contar round-trips, no optimizar SQL.** La DB está en `us-west-2` y el servidor en
   Perú: ~170 ms por viaje, y abrir conexión cuesta ~1 s. La query corre en 23 ms.
@@ -92,10 +92,10 @@ Las cuentas de tejedor se crean desde OC_Hilo (`guardarUsuario`) con `es_tejedor
 
 ## Pendientes de seguridad
 
-1. **La clave del admin está en el código.** `_init_db()` de OC_Hilo siembra
-   `admin` / `Mecsa2026`, y esa sigue siendo la clave real en producción (verificado).
-   Está en el repo: cualquiera con acceso al código entra como admin. Cambiarla.
-2. **Rotar la contraseña de Supabase** (se expuso en chat).
+1. **El usuario `admin` conserva la contraseña semilla** que `_init_db()` de OC_Hilo
+   deja escrita en su código fuente. Cambiarla: cualquiera que lea ese repo entra como
+   administrador.
+2. **Rotar la contraseña de Supabase.**
 3. **`getStockTejedor` de OC_Hilo no valida el token**: acepta cualquier `taller` en el
    body, incluso con un token basura. Este portal no lo usa, pero el agujero sigue ahí
    mientras esa API esté accesible.
