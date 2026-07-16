@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte de Avance · Accesos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    :root{
+    --navy:#1B3B8F; --navy-deep:#142E73;
+    --steel:#3D5A80; --steel-soft:#F1F4F9;
+    --blue:#2563EB; --blue-dark:#1D4ED8; --blue-soft:#EFF4FF;
+    --red:#E11D2E; --red-dark:#B8121F; --red-soft:#FEF0F1;
+    --green:#22C55E; --green-soft:#E9FAEF;
+    --bg:#F4F6FB; --card:#FFFFFF; --line:#E2E8F0;
+    --ink:#0F172A; --muted:#64748B; --muted-soft:#94A3B8;
+    --radius:16px; --radius-sm:10px;
+    --shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px -12px rgba(15,23,42,.12);
+    --shadow-lg: 0 20px 60px -18px rgba(15,23,42,.35);
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink);
+        font-family:'Inter', system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  h1,h2,h3{ font-family:'Poppins','Inter',sans-serif; }
+  .mono, .taller-cell{ font-variant-numeric:tabular-nums; }
+
+  /* login */
+  #login-screen{ min-height:100vh; display:flex; align-items:center;
+                 justify-content:center; background:#EAEEF4; }
+  .login-card{ width:min(400px,92vw); background:var(--card);
+               border:1px solid var(--line); border-top:3px solid var(--steel);
+               border-radius:var(--radius); padding:36px 34px 30px;
+               box-shadow:0 10px 40px -16px rgba(15,23,42,.22); }
+  .login-card h1{ font-size:25px; margin:0 0 2px; line-height:1.2; font-weight:600; }
+  .login-sub{ margin:0 0 26px; font-size:12px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.16em; color:var(--muted-soft); }
+
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:12.5px; font-weight:600; color:#334155; margin-bottom:6px; }
+  .field input, .field select{
+    width:100%; padding:11px 13px; border-radius:9px; border:1.5px solid var(--line);
+    background:#FBFCFE; font-size:14.5px; font-family:inherit; color:var(--ink);
+    transition:border-color .15s ease, box-shadow .15s ease; }
+  .field input:focus, .field select:focus{ outline:none; border-color:var(--red);
+    box-shadow:0 0 0 3px rgba(225,29,46,.15); }
+
+  .alerta{ display:none; font-size:13px; padding:9px 12px; border-radius:8px; margin-bottom:16px; }
+  .alerta.err{ display:block; background:var(--red-soft); color:var(--red); border:1px solid #FBD5D9; }
+  .alerta.ok{ display:block; background:var(--green-soft); color:#15803D; border:1px solid #BEDCC3; }
+
+  .btn{ appearance:none; border:none; cursor:pointer; font-family:inherit; font-weight:600;
+        font-size:14.5px; border-radius:9px; padding:12px 18px;
+        transition:transform .08s ease, filter .15s ease; }
+  .btn:active{ transform:translateY(1px); }
+  .btn:disabled{ background:#CBD5E1; cursor:not-allowed; filter:none; }
+  .btn-primary{ width:100%; background:var(--red); color:#fff; }
+  .btn-primary:hover:not(:disabled){ background:var(--red-dark); }
+
+  /* panel */
+  #panel{ display:none; }
+  .topbar{ display:flex; align-items:center; justify-content:space-between;
+           padding:18px 28px; background:var(--card); border-bottom:1px solid var(--line);
+           border-top:3px solid var(--red); }
+  .topbar-brand{ display:flex; align-items:center; gap:10px; }
+  .topbar-brand .swatch{ width:9px; height:22px; border-radius:2px;
+    background: linear-gradient(180deg, var(--red) 0 50%, var(--blue) 50% 100%); }
+  .topbar-brand span{ font-family:'Poppins',sans-serif; font-weight:700; font-size:15px; color:var(--ink); }
+  #logout-btn{ background:transparent; border:1.5px solid var(--line); color:#475569;
+               padding:8px 14px; font-size:13px; }
+  #logout-btn:hover{ border-color:#CBD5E1; background:#F8FAFC; }
+
+  .page-wrap{ max-width:1040px; margin:0 auto; padding:28px 28px 80px; }
+  .section-title{ font-size:20px; margin:0 0 4px; }
+  .section-sub{ margin:0 0 22px; color:var(--muted); font-size:13.5px; }
+
+  .grid{ display:grid; grid-template-columns: 340px 1fr; gap:22px; align-items:start; }
+  @media (max-width: 860px){ .grid{ grid-template-columns:1fr; } }
+
+  .card{ background:var(--card); border:1px solid var(--line);
+         border-radius:var(--radius); box-shadow:var(--shadow); }
+  .card-head{ padding:16px 18px; border-bottom:1px solid var(--line); background:#FAFBFD;
+              border-radius:var(--radius) var(--radius) 0 0; }
+  .card-head h3{ margin:0; font-size:15px; }
+  .card-body{ padding:18px; }
+
+  table{ width:100%; border-collapse:collapse; }
+  thead th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.06em;
+            color:#fff; font-weight:600; padding:14px 16px; background:var(--steel);
+            border-bottom:1px solid var(--line); }
+  tbody td{ padding:12px 16px; font-size:13.5px; border-bottom:1px solid #EEF2F7; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:var(--steel-soft); }
+  td.taller-cell{ font-family:inherit; font-weight:700; color:var(--ink); }
+
+  .pill{ display:inline-block; font-size:11px; font-weight:600; padding:3px 9px;
+         border-radius:999px; }
+  .pill.on{ background:var(--green-soft); color:#15803D; }
+  .pill.off{ background:#F1F5F9; color:var(--muted-soft); }
+
+  .acciones{ text-align:right; white-space:nowrap; }
+  .mini{ background:transparent; border:1.5px solid var(--line); color:#475569;
+         padding:5px 10px; font-size:12px; border-radius:7px; cursor:pointer;
+         font-family:inherit; font-weight:600; }
+  .mini:hover{ border-color:#CBD5E1; background:#F8FAFC; }
+  .mini.del{ color:var(--red); }
+  .mini.del:hover{ background:var(--red-soft); border-color:#FBD5D9; }
+
+  .hint{ font-size:12px; color:var(--muted-soft); margin-top:10px; line-height:1.5; }
+  .empty{ padding:40px 20px; text-align:center; color:var(--muted-soft); font-size:13.5px; }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Reporte de Avance</h1>
+    <p class="login-sub">Administración</p>
+
+    <div id="login-error" class="alerta"></div>
+
+    <form id="login-form">
+      <div class="field">
+        <label for="login-user">Usuario</label>
+        <input id="login-user" type="text" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="login-pass">Contraseña</label>
+        <input id="login-pass" type="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Ingresar</button>
+    </form>
+  </div>
+</div>
+
+<div id="panel">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="swatch"></div>
+      <span>Reporte de Avance · Accesos</span>
+    </div>
+    <button id="logout-btn" class="btn">Cerrar sesión</button>
+  </div>
+
+  <div class="page-wrap">
+    <h2 class="section-title">Accesos de tejedores</h2>
+    <p class="section-sub">Cada cuenta queda atada a un taller. El portal deriva el taller de la sesión,
+      así que un tejedor solo puede ver y reportar lo suyo.</p>
+
+    <div id="alerta" class="alerta"></div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-head"><h3 id="form-titulo">Nuevo tejedor</h3></div>
+        <div class="card-body">
+          <form id="form-tejedor">
+            <div class="field">
+              <label for="f-usuario">Usuario</label>
+              <input id="f-usuario" type="text" placeholder="Ej. famicotton" required>
+            </div>
+            <div class="field">
+              <label for="f-taller">Taller</label>
+              <select id="f-taller" required></select>
+            </div>
+            <div class="field">
+              <label for="f-clave">Contraseña</label>
+              <input id="f-clave" type="text" placeholder="—">
+            </div>
+            <button type="submit" class="btn btn-primary">Guardar</button>
+          </form>
+          <p class="hint" id="form-hint">Al editar, deja la contraseña vacía para no cambiarla.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>Cuentas existentes</h3></div>
+        <table>
+          <thead>
+            <tr><th>Usuario</th><th>Taller</th><th>Estado</th><th></th></tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="empty" id="empty" style="display:none;">
+          Todavía no hay cuentas de tejedor.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let TOKEN = sessionStorage.getItem("admin_token") || null;
+let EDITANDO = null;
+
+async function api(ruta, opts = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (TOKEN) headers["X-Token"] = TOKEN;
+  const r = await fetch(ruta, { ...opts, headers });
+  const cuerpo = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(cuerpo.detail || `Error ${r.status}`);
+  return cuerpo;
+}
+
+function alerta(msg, tipo) {
+  const el = document.getElementById("alerta");
+  el.textContent = msg;
+  el.className = "alerta " + tipo;
+  setTimeout(() => { el.className = "alerta"; }, 4000);
+}
+
+/* login */
+const loginForm = document.getElementById("login-form");
+loginForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  const err = document.getElementById("login-error");
+  const btn = loginForm.querySelector("button");
+  btn.disabled = true; btn.textContent = "Ingresando…";
+  try {
+    const r = await api("api/login", {
+      method: "POST",
+      body: JSON.stringify({
+        usuario: document.getElementById("login-user").value.trim(),
+        clave: document.getElementById("login-pass").value,
+      }),
+    });
+    if (r.rol !== "admin") throw new Error("Esta cuenta no es administradora.");
+    TOKEN = r.token;
+    sessionStorage.setItem("admin_token", TOKEN);
+    err.className = "alerta";
+    await entrar();
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.className = "alerta err";
+  } finally {
+    btn.disabled = false; btn.textContent = "Ingresar";
+  }
+});
+
+document.getElementById("logout-btn").addEventListener("click", () => {
+  sessionStorage.removeItem("admin_token");
+  TOKEN = null;
+  document.getElementById("panel").style.display = "none";
+  document.getElementById("login-screen").style.display = "flex";
+  loginForm.reset();
+});
+
+async function entrar() {
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("panel").style.display = "block";
+  await cargar();
+}
+
+/* datos */
+async function cargar() {
+  let r;
+  try {
+    r = await api("api/admin/tejedores");
+  } catch (ex) {
+    sessionStorage.removeItem("admin_token");
+    TOKEN = null;
+    document.getElementById("panel").style.display = "none";
+    document.getElementById("login-screen").style.display = "flex";
+    return;
+  }
+
+  const sel = document.getElementById("f-taller");
+  sel.innerHTML = `<option value="">Elige un taller…</option>` + r.talleres.map(t =>
+    `<option value="${t.codigo}">${t.codigo} — ${t.nombre || "?"} (${t.pendientes} pend.)</option>`
+  ).join("");
+
+  const tbody = document.getElementById("tbody");
+  const empty = document.getElementById("empty");
+  if (!r.usuarios.length) {
+    tbody.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  tbody.innerHTML = r.usuarios.map(u => `
+    <tr>
+      <td><strong>${u.usuario}</strong></td>
+      <td class="taller-cell">${u.taller}</td>
+      <td><span class="pill ${u.activo ? "on" : "off"}">${u.activo ? "Activo" : "Inactivo"}</span></td>
+      <td class="acciones">
+        <button class="mini" data-edit="${u.usuario}" data-taller="${u.taller}">Editar</button>
+        <button class="mini del" data-del="${u.usuario}">Borrar</button>
+      </td>
+    </tr>
+  `).join("");
+
+  tbody.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => {
+    EDITANDO = b.dataset.edit;
+    document.getElementById("f-usuario").value = EDITANDO;
+    document.getElementById("f-usuario").disabled = true;
+    document.getElementById("f-taller").value = b.dataset.taller;
+    document.getElementById("f-clave").value = "";
+    document.getElementById("form-titulo").textContent = "Editar " + EDITANDO;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }));
+
+  tbody.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", async () => {
+    const u = b.dataset.del;
+    if (!confirm(`¿Borrar el acceso de "${u}"? El tejedor ya no podrá reportar.`)) return;
+    try {
+      await api("api/admin/tejedores/eliminar", {
+        method: "POST", body: JSON.stringify({ usuario: u }),
+      });
+      alerta(`Acceso de "${u}" eliminado.`, "ok");
+      await cargar();
+    } catch (ex) { alerta(ex.message, "err"); }
+  }));
+}
+
+/* alta / edicion */
+document.getElementById("form-tejedor").addEventListener("submit", async e => {
+  e.preventDefault();
+  const usuario = document.getElementById("f-usuario").value.trim();
+  const taller  = document.getElementById("f-taller").value;
+  const clave   = document.getElementById("f-clave").value;
+
+  if (!taller) { alerta("Elige un taller.", "err"); return; }
+  if (!EDITANDO && !clave) { alerta("Un usuario nuevo necesita contraseña.", "err"); return; }
+
+  try {
+    const r = await api("api/admin/tejedores", {
+      method: "POST",
+      body: JSON.stringify({ usuario, taller, clave: clave || null, activo: true }),
+    });
+    alerta(`"${r.usuario}" ${r.accion} · taller ${r.taller}`, "ok");
+    limpiar();
+    await cargar();
+  } catch (ex) { alerta(ex.message, "err"); }
+});
+
+function limpiar() {
+  EDITANDO = null;
+  document.getElementById("f-usuario").value = "";
+  document.getElementById("f-usuario").disabled = false;
+  document.getElementById("f-taller").value = "";
+  document.getElementById("f-clave").value = "";
+  document.getElementById("form-titulo").textContent = "Nuevo tejedor";
+}
+
+if (TOKEN) entrar();
+</script>
+
+</body>
+</html>

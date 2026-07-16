@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte de Avance · Tejeduría</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     Paleta Boston / MECSA ERP
+     ============================================================ */
+  :root{
+    --navy:#1B3B8F;          /* superficies oscuras: login, pildora, toast */
+    --navy-deep:#142E73;
+    --steel:#3D5A80;         /* azul apagado: cabeceras de tabla */
+    --steel-soft:#F1F4F9;    /* su tinte, para hover de fila */
+    --blue:#2563EB;          /* vivo: solo brillo del fondo de login */
+    --blue-dark:#1D4ED8;
+    --blue-soft:#EFF4FF;
+    --red:#E11D2E;           /* PRIMARIO: cabecera, boton, acentos */
+    --red-dark:#B8121F;
+    --red-soft:#FEF0F1;
+    --green:#22C55E;
+    --green-soft:#E9FAEF;
+    --amber:#F59E0B;
+    --amber-soft:#FEF6E7;
+
+    --bg:#F4F6FB;
+    --card:#FFFFFF;
+    --line:#E2E8F0;
+    --ink:#0F172A;
+    --muted:#64748B;
+    --muted-soft:#94A3B8;
+
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px -12px rgba(15,23,42,.12);
+    --shadow-lg: 0 20px 60px -18px rgba(15,23,42,.35);
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  h1,h2,h3,.display{
+    font-family:'Poppins','Inter',sans-serif;
+    letter-spacing:-0.01em;
+  }
+
+  /* numeros alineados (el ERP no usa monoespaciada) */
+  .mono, .num-cell, .os-cell, .stat-card .num, .progress-pct, .stock-input{
+    font-variant-numeric: tabular-nums;
+    font-feature-settings:"tnum";
+  }
+
+  /* ---------------------------------------------------------- */
+  /* LOGIN                                                       */
+  /* ---------------------------------------------------------- */
+  #login-screen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#EAEEF4;
+  }
+
+  .login-card{
+    width:min(400px, 92vw);
+    background:var(--card);
+    border:1px solid var(--line);
+    border-top:3px solid var(--steel);
+    border-radius:var(--radius);
+    padding:36px 34px 30px;
+    box-shadow:0 10px 40px -16px rgba(15,23,42,.22);
+  }
+
+
+  .login-card h1{ font-size:25px; margin:0 0 2px; line-height:1.2; font-weight:600; }
+  .login-sub{ margin:0 0 26px; font-size:12px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.16em; color:var(--muted-soft); }
+
+  .field{ margin-bottom:16px; }
+  .field label{
+    display:block; font-size:12.5px; font-weight:600; color:#334155; margin-bottom:6px;
+  }
+  .field input{
+    width:100%; padding:11px 13px;
+    border-radius:var(--radius-sm);
+    border:1.5px solid var(--line);
+    background:#FBFCFE;
+    font-size:14.5px; font-family:inherit; color:var(--ink);
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .field input:focus{
+    outline:none; border-color:var(--red);
+    box-shadow:0 0 0 3px rgba(225,29,46,.15);
+  }
+
+  #login-error{
+    display:none;
+    background:var(--red-soft); color:var(--red);
+    border:1px solid #FBD5D9;
+    font-size:13px; padding:9px 12px; border-radius:var(--radius-sm); margin-bottom:16px;
+  }
+
+  .btn{
+    appearance:none; border:none; cursor:pointer;
+    font-family:inherit; font-weight:600; font-size:14.5px;
+    border-radius:var(--radius-sm); padding:12px 18px;
+    transition:transform .08s ease, filter .15s ease, background .15s ease;
+  }
+  .btn:active{ transform:translateY(1px); }
+  .btn-primary{ width:100%; background:var(--red); color:#fff; }
+  .btn-primary:hover:not(:disabled){ background:var(--red-dark); }
+  .btn-primary:disabled{ background:#CBD5E1; cursor:not-allowed; }
+
+
+  /* ---------------------------------------------------------- */
+  /* DASHBOARD                                                   */
+  /* ---------------------------------------------------------- */
+  #dashboard{ display:none; }
+
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 28px;
+    background:var(--card);
+    border-bottom:1px solid var(--line);
+    border-top:3px solid var(--red);
+  }
+  .topbar-brand{ display:flex; align-items:center; gap:10px; }
+  .topbar-brand .swatch{
+    width:8px; height:24px; border-radius:2px;
+    background: linear-gradient(180deg, var(--red) 0 70%, var(--navy) 70% 100%);
+  }
+  .topbar-brand span{
+    font-family:'Poppins',sans-serif; font-weight:700; font-size:15px; color:var(--ink);
+  }
+
+  #logout-btn{
+    background:#fff; border:1.5px solid var(--line); color:#475569;
+    padding:8px 15px; font-size:13px;
+  }
+  #logout-btn:hover{ border-color:#CBD5E1; background:#F8FAFC; }
+
+  .page-wrap{ max-width:1520px; margin:0 auto; padding:28px 24px 80px; }
+
+  /* Sobrio: sin fondo fuerte. Solo un filo de color y el nombre en negro.
+     Los nombres son largos ("TEXTIL DEFRANCO E.I.R.L.", "TEXTILES SAN ISIDRO
+     S.A.C."), asi que 20px: mas grande que el resto sin desbordar ni gritar. */
+  .hello-pill{
+    background:transparent;
+    color:var(--ink);
+    border:none;
+    border-left:3px solid var(--steel);
+    border-radius:0;
+    padding:3px 0 3px 14px;
+    font-family:'Poppins',sans-serif; font-weight:500; font-size:20px;
+    line-height:1.3;
+    margin-bottom:24px; display:inline-block;
+    box-shadow:none;
+  }
+  .hello-pill span{ color:var(--ink); font-weight:700; letter-spacing:.01em; }
+
+  .section-title{ font-size:22px; margin:0 0 4px; font-weight:600; }
+  .section-sub{ margin:0 0 20px; color:var(--muted); font-size:13.5px; }
+
+  .stats-row{ display:flex; gap:14px; margin-bottom:22px; flex-wrap:wrap; }
+  .stat-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-top:3px solid var(--steel);
+    border-radius:var(--radius-sm);
+    padding:14px 20px; min-width:150px;
+    box-shadow:var(--shadow);
+  }
+  .stat-card .num{
+    font-family:'Poppins',sans-serif; font-size:24px; font-weight:600; color:var(--ink);
+  }
+  .stat-card .lbl{
+    font-size:11px; text-transform:uppercase; letter-spacing:.07em;
+    color:var(--muted-soft); margin-top:2px; font-weight:600;
+  }
+
+  .table-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+    box-shadow:var(--shadow);
+  }
+  .table-scroll{ overflow-x:auto; }
+
+  table{ width:100%; border-collapse:collapse; min-width:0; table-layout:auto; }
+
+  /* cabecera rellena con texto blanco (firma del ERP), en azul apagado */
+  thead th{
+    text-align:center;
+    font-size:12px; text-transform:uppercase; letter-spacing:.04em;
+    color:#fff; font-weight:600;
+    padding:14px 8px;
+    background:var(--steel);
+    position:sticky; top:0;
+    white-space:nowrap;
+  }
+
+  /* Todo el texto de la tabla en negro: el color se reserva para el cromo
+     (cabecera, boton, barra), no para los datos. */
+  tbody td{
+    padding:11px 8px; font-size:14px;
+    border-bottom:1px solid #EEF2F7;
+    vertical-align:middle; white-space:nowrap;
+    color:var(--ink);
+    text-align:center;
+  }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:var(--steel-soft); }
+
+  td.os-cell{ font-weight:700; color:var(--ink); }
+  td.prov-cell{ max-width:150px; overflow:hidden; text-overflow:ellipsis; }
+  /* la barra de progreso es un bloque: se centra sola dentro de la celda */
+  .progress-track{ margin:0 auto; }
+
+  /* ---- desglose de guias de remision ---- */
+  td.caret-cell{ width:26px; padding-left:12px !important; padding-right:0 !important;
+                 text-align:left !important; }
+  .caret{
+    border:none; background:transparent; cursor:pointer;
+    padding:2px 4px; line-height:1; color:var(--muted);
+    font-size:11px; transition:transform .15s ease, color .15s ease;
+  }
+  .caret:hover{ color:var(--steel); }
+  .caret.abierto{ transform:rotate(90deg); color:var(--steel); }
+  .caret[disabled]{ opacity:.22; cursor:default; }
+
+  tr.detalle-row > td{
+    padding:0 !important;
+    background:#F7F9FC;
+    border-bottom:1px solid var(--line);
+  }
+  .detalle{
+    padding:16px 18px 18px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .detalle-tit{
+    font-size:12px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); font-weight:600; margin-bottom:10px;
+    text-align:center;
+  }
+  table.guias{ width:auto; min-width:0; border-collapse:collapse; margin:0 auto; }
+  table.guias th{
+    background:transparent; color:var(--muted);
+    font-size:11px; letter-spacing:.04em;
+    padding:5px 14px; position:static;
+    border-bottom:1px solid var(--line);
+    text-align:center;
+  }
+  table.guias td{
+    padding:5px 14px; font-size:13.5px;
+    border-bottom:1px solid #EDF1F6; white-space:nowrap;
+    text-align:center;
+  }
+  table.guias tr:hover{ background:transparent; }
+  table.guias .n{ text-align:center; }
+  table.guias tfoot td{
+    font-weight:700; border-bottom:none; border-top:1.5px solid var(--line);
+    padding-top:7px;
+  }
+  .dif-pos{ color:var(--red); font-weight:600; }
+  .sin-guias{ font-size:13.5px; color:var(--muted-soft); padding:2px 0 4px; text-align:center; }
+
+  thead th:first-child, tbody td:first-child{ padding-left:16px; }
+  thead th:last-child,  tbody td:last-child{ padding-right:16px; text-align:center; }
+
+  .stock-input{
+    padding:6px 8px;
+    border-radius:8px; border:1.5px solid var(--line);
+    font-family:inherit; font-size:14px; background:#FBFCFE; color:var(--ink);
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  /* Los rollos son enteros (3 digitos bastan); el peso lleva decimales y
+     necesita hasta 7-8 caracteres ("1244.25", "1970.30"). */
+  .rollos-input{ width:74px; }
+  .peso-input{ width:100px; }
+  .stock-input:focus{
+    outline:none; border-color:var(--red);
+    box-shadow:0 0 0 3px rgba(225,29,46,.14);
+  }
+
+  .progress-track{
+    width:78px; height:7px;
+    background:#E7EDF5; border-radius:999px; overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    background: linear-gradient(90deg, var(--red), #F87171);
+    border-radius:999px; transition:width .3s ease;
+  }
+  .progress-pct{
+    font-size:12px; color:var(--muted); margin-top:4px; display:block; font-weight:600;
+  }
+
+  input[type="checkbox"].estado-check{
+    width:17px; height:17px; accent-color:var(--red); cursor:pointer;
+  }
+
+  .table-foot{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+    padding:22px 20px;
+    border-top:1px solid var(--line);
+    background:#FAFBFD;
+  }
+  .foot-info{ font-size:12.5px; color:var(--muted); text-align:center; }
+
+  /* Accion principal del tejedor: en rojo y centrada para que no se pase por alto. */
+  .btn-enviar{
+    background:var(--red); color:#fff;
+    padding:14px 46px; font-size:15px;
+    box-shadow:0 6px 18px -6px rgba(225,29,46,.55);
+  }
+  .btn-enviar:hover:not(:disabled){ background:var(--red-dark); }
+  .btn-enviar:disabled{ background:#CBD5E1; cursor:not-allowed; box-shadow:none; }
+
+  .row-dirty td{ background:var(--amber-soft); }
+
+  #toast{
+    position:fixed; bottom:24px; left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--navy); color:#fff;
+    padding:12px 22px; border-radius:var(--radius-sm);
+    font-size:13.5px; opacity:0; pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease;
+    box-shadow:var(--shadow-lg);
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .empty-state{ padding:60px 20px; text-align:center; color:var(--muted-soft); }
+
+  @media (max-width: 720px){
+    .page-wrap{ padding:20px 14px 60px; }
+    .hello-pill{ font-size:19px; padding:15px 22px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- LOGIN                                                          -->
+<!-- ============================================================ -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Reporte de Avance</h1>
+    <p class="login-sub">Tejeduría</p>
+
+    <div id="login-error">Usuario o contraseña incorrectos.</div>
+
+    <form id="login-form">
+      <div class="field">
+        <label for="login-user">Usuario</label>
+        <input id="login-user" type="text" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="login-pass">Contraseña</label>
+        <input id="login-pass" type="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Ingresar</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DASHBOARD                                                      -->
+<!-- ============================================================ -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="swatch"></div>
+      <span>Reporte de Avance</span>
+    </div>
+    <button id="logout-btn" class="btn">Cerrar sesión</button>
+  </div>
+
+  <div class="page-wrap">
+    <div class="hello-pill">Hola, <span id="tejedor-name">TEJEDOR</span></div>
+
+    <h2 class="section-title">Completa el reporte de Stock</h2>
+    <p class="section-sub">Actualiza los rollos y el peso en stock de cada suborden. Los campos traen tu último reporte: revísalos y envía todo junto.</p>
+
+    <div class="stats-row" id="stats-row"></div>
+
+    <div class="table-card">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>OS</th>
+              <th>Tejido</th>
+              <th>Ancho</th>
+              <th>Proveedor Hilado</th>
+              <th>Program. (kg)</th>
+              <th>Despach. (kg)</th>
+              <th>Fecha de Inicio</th>
+              <th>Queda (kg)</th>
+              <th>Rollos</th>
+              <th>Peso stock</th>
+              <th>Progreso</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <!-- filled by JS -->
+          </tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="empty-state" style="display:none;">
+        No tienes subórdenes asignadas por el momento.
+      </div>
+      <div class="table-foot" id="table-foot">
+        <div class="foot-info">
+          Reporte <span class="mono" id="vez-num">—</span> ·
+          <span id="foot-hint">Se envía todo junto, en un solo reporte.</span>
+        </div>
+        <button id="enviar-btn" class="btn btn-enviar">Enviar reporte</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ==================================================================
+   PORTAL DE TEJEDORES · conectado al backend (Supabase)
+   ------------------------------------------------------------------
+   Reemplaza al AppScript. Diferencias clave respecto al mock:
+
+   - La identidad sale del TOKEN, no de la URL. El backend deriva el
+     taller de la sesion; el cliente nunca lo manda.
+   - El reporte se envia COMPLETO, no fila por fila: cada envio es un
+     `vez` (correlativo por taller) y OC_Hilo lee el ultimo `vez`.
+     Guardar fila por fila generaria N `vez` distintos y romperia eso.
+   ================================================================== */
+
+let TOKEN = sessionStorage.getItem("tejedor_token") || null;
+let FILAS = [];        // ultimo payload del server
+let ESTADO = {};       // subos -> {rollos, peso, finalizado} editado por el usuario
+
+/* ------------------------------------------------------------------ */
+/* helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+async function api(ruta, opts = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (TOKEN) headers["X-Token"] = TOKEN;
+  const r = await fetch(ruta, { ...opts, headers });
+  const cuerpo = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(cuerpo.detail || `Error ${r.status}`);
+  return cuerpo;
+}
+
+function formatKg(n) {
+  if (n == null) return "—";
+  return Number(n).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function progressPct(row) {
+  if (!row.programado) return 0;
+  return Math.min(100, Math.round((row.despachado / row.programado) * 100));
+}
+
+/* ------------------------------------------------------------------ */
+/* login                                                               */
+/* ------------------------------------------------------------------ */
+
+const loginScreen = document.getElementById("login-screen");
+const dashboard   = document.getElementById("dashboard");
+const loginForm   = document.getElementById("login-form");
+const loginError  = document.getElementById("login-error");
+
+function mostrarError(msg) {
+  loginError.textContent = msg;
+  loginError.style.display = "block";
+}
+
+loginForm.addEventListener("submit", async function (e) {
+  e.preventDefault();
+  const usuario = document.getElementById("login-user").value.trim();
+  const clave   = document.getElementById("login-pass").value;
+  const btn     = loginForm.querySelector("button[type=submit]");
+
+  btn.disabled = true;
+  btn.textContent = "Ingresando…";
+  try {
+    const r = await api("api/login", {
+      method: "POST",
+      body: JSON.stringify({ usuario, clave }),
+    });
+    TOKEN = r.token;
+    sessionStorage.setItem("tejedor_token", TOKEN);
+    loginError.style.display = "none";
+    await entrar();
+  } catch (err) {
+    mostrarError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Ingresar";
+  }
+});
+
+document.getElementById("logout-btn").addEventListener("click", function () {
+  sessionStorage.removeItem("tejedor_token");
+  TOKEN = null;
+  FILAS = [];
+  ESTADO = {};
+  dashboard.style.display = "none";
+  loginScreen.style.display = "flex";
+  loginForm.reset();
+});
+
+async function entrar() {
+  loginScreen.style.display = "none";
+  dashboard.style.display = "block";
+  await cargarStock();
+}
+
+/* ------------------------------------------------------------------ */
+/* tabla                                                               */
+/* ------------------------------------------------------------------ */
+
+async function cargarStock() {
+  const tbody = document.getElementById("table-body");
+  tbody.innerHTML = `<tr><td colspan="13" style="padding:28px;text-align:center;color:var(--muted-soft)">Cargando…</td></tr>`;
+
+  let r;
+  try {
+    r = await api("api/stock");
+  } catch (err) {
+    // token vencido o invalido -> de vuelta al login
+    sessionStorage.removeItem("tejedor_token");
+    TOKEN = null;
+    dashboard.style.display = "none";
+    loginScreen.style.display = "flex";
+    mostrarError(err.message);
+    return;
+  }
+
+  FILAS = r.data;
+  ESTADO = {};
+  // Mismo criterio que el AppScript, verificado sobre su HTML:
+  //   - rollos y peso arrancan VACIOS (0 de 16 inputs traen `value`). Son el
+  //     conteo del dia; arrastrar el del reporte anterior se leeria como stock
+  //     de hoy y un Enviar distraido lo daria por vigente.
+  //   - el checkbox SI arrastra el ultimo estado conocido (7 de 16 traen
+  //     `checked`): no es un conteo, es una condicion de la suborden.
+  FILAS.forEach(f => {
+    ESTADO[f.subos] = { rollos: null, peso: null, finalizado: !!f.finalizado };
+  });
+
+  // El saludo usa el nombre comercial del taller (el mismo del AppScript),
+  // no el usuario de login. Solo para eso: el resto sigue con `usuario`/`taller`.
+  document.getElementById("tejedor-name").textContent = r.nombreTaller || r.usuario;
+  document.getElementById("vez-num").textContent = "#" + r.proximaVez;
+  renderTable();
+}
+
+function renderStats() {
+  const total = FILAS.length;
+  const completos = FILAS.filter(r => progressPct(r) >= 100).length;
+  // Cuenta viva de lo que falta por llenar en ESTE reporte (baja al ir tecleando).
+  // No mira el reporte anterior: la tabla arranca en blanco a proposito.
+  const porLlenar = FILAS.filter(r => {
+    const e = ESTADO[r.subos];
+    return e.rollos == null && e.peso == null;
+  }).length;
+
+  document.getElementById("stats-row").innerHTML = `
+    <div class="stat-card"><div class="num mono">${total}</div><div class="lbl">Subórdenes asignadas</div></div>
+    <div class="stat-card"><div class="num mono">${completos}</div><div class="lbl">Despacho completo</div></div>
+    <div class="stat-card"><div class="num mono">${porLlenar}</div><div class="lbl">Por completar</div></div>
+  `;
+}
+
+function renderTable() {
+  renderStats();
+
+  const tbody = document.getElementById("table-body");
+  const emptyState = document.getElementById("empty-state");
+  const foot = document.getElementById("table-foot");
+
+  if (FILAS.length === 0) {
+    tbody.innerHTML = "";
+    emptyState.style.display = "block";
+    foot.style.display = "none";
+    return;
+  }
+  emptyState.style.display = "none";
+  foot.style.display = "flex";
+
+  tbody.innerHTML = FILAS.map(row => {
+    const pct = progressPct(row);
+    const e = ESTADO[row.subos];
+    const nG = (row.guias || []).length;
+    return `
+      <tr data-subos="${row.subos}">
+        <td class="caret-cell">
+          <button class="caret" ${nG ? "" : "disabled"}
+                  title="${nG ? `Ver ${nG} guía(s) de remisión` : "Sin guías registradas"}">▶</button>
+        </td>
+        <td class="os-cell">${row.os}</td>
+        <td>${row.tejido || ""}</td>
+        <td class="num-cell">${row.ancho || ""}</td>
+        <td class="prov-cell" title="${row.proveedor || ""}">${row.proveedor || "—"}</td>
+        <td class="num-cell">${formatKg(row.programado)}</td>
+        <td class="num-cell">${formatKg(row.despachado)}</td>
+        <td class="num-cell">${row.fecha_inicio || "—"}</td>
+        <td class="num-cell">${formatKg(row.queda)}</td>
+        <td>
+          <input type="number" min="0" step="1" class="stock-input rollos-input"
+                 value="${e.rollos ?? ""}" placeholder="—">
+        </td>
+        <td>
+          <input type="number" min="0" step="0.01" class="stock-input peso-input"
+                 value="${e.peso ?? ""}" placeholder="—">
+        </td>
+        <td>
+          <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+          <span class="progress-pct">${pct}%</span>
+        </td>
+        <td>
+          <input type="checkbox" class="estado-check" ${e.finalizado ? "checked" : ""}>
+        </td>
+      </tr>
+      <tr class="detalle-row" data-detalle="${row.subos}" hidden>
+        <td colspan="13">${renderGuias(row)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  attachRowHandlers();
+}
+
+/* Desglose del Despachado: de que guias de remision se compone.
+   La suma de "Peso Mecsa" es exactamente el Despachado de la fila. */
+function renderGuias(row) {
+  const gs = row.guias || [];
+  if (!gs.length) {
+    return `<div class="detalle">
+      <div class="detalle-tit">Guías de remisión</div>
+      <div class="sin-guias">Sin guías registradas para esta suborden.</div>
+    </div>`;
+  }
+
+  let tRollos = 0, tGuia = 0, tMecsa = 0;
+  const filas = gs.map(g => {
+    const pg = g.peso_guia || 0, pm = g.peso_mecsa || 0, dif = pg - pm;
+    tRollos += g.rollos || 0; tGuia += pg; tMecsa += pm;
+    return `<tr>
+      <td><strong>${g.guia}</strong></td>
+      <td>${g.parte || "—"}</td>
+      <td>${g.fecha || "—"}</td>
+      <td class="n">${g.rollos ?? "—"}</td>
+      <td class="n">${formatKg(pg)}</td>
+      <td class="n">${formatKg(pm)}</td>
+      <td class="n ${dif > 0.005 ? "dif-pos" : ""}">${dif > 0.005 ? "−" + formatKg(dif) : "—"}</td>
+    </tr>`;
+  }).join("");
+
+  const difTotal = tGuia - tMecsa;
+
+  return `<div class="detalle">
+    <div class="detalle-tit">Guías de remisión · ${gs.length}</div>
+    <table class="guias">
+      <thead>
+        <tr>
+          <th>GUÍA</th><th>PARTE ENTRADA</th><th>FECHA</th>
+          <th class="n">ROLLOS</th><th class="n">PESO GUÍA</th>
+          <th class="n">PESO MECSA</th><th class="n">DIF.</th>
+        </tr>
+      </thead>
+      <tbody>${filas}</tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3">TOTAL</td>
+          <td class="n">${tRollos}</td>
+          <td class="n">${formatKg(tGuia)}</td>
+          <td class="n">${formatKg(tMecsa)}</td>
+          <td class="n ${difTotal > 0.005 ? "dif-pos" : ""}">${difTotal > 0.005 ? "−" + formatKg(difTotal) : "—"}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>`;
+}
+
+function attachRowHandlers() {
+  // Solo las filas de datos: las .detalle-row no tienen inputs.
+  document.querySelectorAll("#table-body tr[data-subos]").forEach(tr => {
+    const subos = tr.dataset.subos;
+    const rollosInput = tr.querySelector(".rollos-input");
+    const pesoInput   = tr.querySelector(".peso-input");
+    const estadoCheck = tr.querySelector(".estado-check");
+    const caret       = tr.querySelector(".caret");
+
+    function marcar() {
+      ESTADO[subos] = {
+        rollos: rollosInput.value === "" ? null : Number(rollosInput.value),
+        peso:   pesoInput.value === "" ? null : Number(pesoInput.value),
+        finalizado: estadoCheck.checked,
+      };
+      tr.classList.add("row-dirty");
+      renderStats();   // el contador "Por completar" baja al ir llenando
+    }
+
+    rollosInput.addEventListener("input", marcar);
+    pesoInput.addEventListener("input", marcar);
+    estadoCheck.addEventListener("change", marcar);
+
+    if (caret && !caret.disabled) {
+      caret.addEventListener("click", () => {
+        const det = document.querySelector(`#table-body tr[data-detalle="${subos}"]`);
+        if (!det) return;
+        const abierto = !det.hidden;
+        det.hidden = abierto;
+        caret.classList.toggle("abierto", !abierto);
+      });
+    }
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* envio del reporte (un solo `vez` para todas las filas)              */
+/* ------------------------------------------------------------------ */
+
+document.getElementById("enviar-btn").addEventListener("click", async function () {
+  const btn = this;
+
+  const filas = FILAS.map(f => ({
+    subos: f.subos,
+    rollos: ESTADO[f.subos].rollos,
+    peso: ESTADO[f.subos].peso,
+    finalizado: ESTADO[f.subos].finalizado,
+  }));
+
+  const conDatos = filas.filter(f => f.rollos != null || f.peso != null || f.finalizado);
+  if (conDatos.length === 0) {
+    showToast("No hay nada que reportar todavía.");
+    return;
+  }
+  if (!confirm(`Vas a enviar el reporte de ${filas.length} subórdenes. ¿Confirmas?`)) return;
+
+  btn.disabled = true;
+  btn.textContent = "Enviando…";
+  try {
+    const r = await api("api/stock", {
+      method: "POST",
+      body: JSON.stringify({ filas }),
+    });
+    showToast(`Reporte #${r.vez} enviado · ${r.filas} subórdenes`);
+    await cargarStock();
+  } catch (err) {
+    showToast("Error: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Enviar reporte";
+  }
+});
+
+/* ------------------------------------------------------------------ */
+/* toast                                                               */
+/* ------------------------------------------------------------------ */
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById("toast");
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
+}
+
+/* si ya habia sesion en esta pestana, entra directo */
+if (TOKEN) entrar();
+
+</script>
+
+</body>
+</html>
