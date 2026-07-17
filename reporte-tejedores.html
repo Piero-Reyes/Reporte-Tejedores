@@ -240,9 +240,9 @@
     border-radius:var(--radius); box-shadow:var(--shadow);
     padding:20px 22px 16px; margin-bottom:20px;
   }
-  .grafico-tit{ font-size:14.5px; font-weight:600; margin:0 0 2px; }
-  .grafico-sub{ font-size:12.5px; color:var(--muted); margin:0 0 16px; }
-  #grafico-wrap{ position:relative; }
+  .grafico-tit{ font-size:14.5px; font-weight:600; margin:0 0 2px; text-align:center; }
+  .grafico-sub{ font-size:12.5px; color:var(--muted); margin:0 0 16px; text-align:center; }
+  #grafico-wrap{ position:relative; max-width:840px; margin:0 auto; }  /* tope + centrado */
   #grafico svg{ display:block; width:100%; height:auto; }
   .g-grid{ stroke:#EEF2F7; stroke-width:1; }          /* hairline, solida, recesiva */
   .g-eje{ fill:var(--muted-soft); font-size:10.5px; font-weight:600;
@@ -257,18 +257,23 @@
 
   #g-tip{
     position:absolute; pointer-events:none; opacity:0;
-    background:var(--ink); color:#fff; border-radius:8px;
-    padding:9px 12px; font-size:12px; line-height:1.5;
+    background:var(--card); color:var(--ink);
+    border:1px solid var(--line); border-radius:10px;
+    padding:10px 13px; font-size:12.5px; line-height:1.5;
     white-space:nowrap; transform:translate(-50%, -100%);
     transition:opacity .12s ease;
-    box-shadow:0 8px 24px -8px rgba(15,23,42,.5);
+    box-shadow:0 10px 30px -10px rgba(15,23,42,.28);
   }
-  #g-tip b{ font-size:13px; }
-  #g-tip .t-mes{ color:#93B4FF; font-weight:700; margin-bottom:3px; }
-  #g-tip .t-dif{ color:#FF8F9B; }
+  #g-tip .t-mes{
+    font-weight:700; font-size:12.5px; color:var(--ink);
+    padding-bottom:7px; margin-bottom:7px;
+    border-bottom:1px solid var(--line);
+    text-transform:capitalize;
+  }
   #g-tip table{ border-collapse:collapse; }
-  #g-tip td{ padding:1px 0; font-variant-numeric:tabular-nums; }
-  #g-tip td:last-child{ padding-left:12px; text-align:right; }
+  #g-tip td{ padding:2px 0; }
+  #g-tip td.t-lbl{ color:var(--muted); padding-right:20px; }
+  #g-tip td.t-val{ text-align:right; font-weight:600; font-variant-numeric:tabular-nums; }
   .g-vacio{ padding:34px 20px; text-align:center; color:var(--muted-soft); font-size:13px; }
 
   @media (prefers-reduced-motion: reduce){
@@ -862,7 +867,7 @@ function renderGrafico() {
   vacio.style.display = "none";
 
   // viewBox fijo; el SVG escala al ancho del contenedor via CSS.
-  const W = 640, H = 240, mL = 52, mR = 16, mT = 16, mB = 34;
+  const W = 640, H = 200, mL = 52, mR = 16, mT = 14, mB = 30;
   const pw = W - mL - mR, ph = H - mT - mB;
 
   const maxKg = Math.max(...datos.map(d => d.mecsa));
@@ -927,12 +932,10 @@ function renderGrafico() {
     dot.setAttribute("cy", y(d.mecsa).toFixed(1));
     dot.style.visibility = "visible";
 
-    const dif = d.guia - d.mecsa;
     tip.innerHTML = `<div class="t-mes">${etiquetaMes(d.mes)}</div>
       <table>
-        <tr><td>Entregado</td><td><b>${formatKg(d.mecsa)} kg</b></td></tr>
-        <tr><td>${d.n} guía${d.n === 1 ? "" : "s"}</td><td></td></tr>
-        ${dif > 0.005 ? `<tr><td class="t-dif">Según tus guías</td><td class="t-dif">${formatKg(d.guia)} kg</td></tr>` : ""}
+        <tr><td class="t-lbl">Según tus guías</td><td class="t-val">${formatKg(d.guia)} kg</td></tr>
+        <tr><td class="t-lbl">Guías</td><td class="t-val">${d.n}</td></tr>
       </table>`;
     // posicion en px del contenedor
     tip.style.left = (x(i) / W * r.width) + "px";
