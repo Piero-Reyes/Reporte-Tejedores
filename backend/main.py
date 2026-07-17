@@ -293,6 +293,37 @@ nombre_taller as (
          group by 1, 2
     ) x where rn = 1
 ),
+-- Entregas por mes, para el grafico de la vista "Avance por OS". Se agrega en
+-- su propio CTE (no como subconsulta del SELECT) para que corra UNA vez y no
+-- por cada suborden.
+--
+-- Solo guias reales: mov_segregado tambien guarda 5 filas 'Historico (reporte
+-- tejedor)' sin fecha ni rollos, que no son entregas.
+--
+-- `peso_mecsa` es el que cuenta para el avance; `peso_guia` (lo que declaro el
+-- tejedor) viaja al lado para poder explicar la diferencia en el tooltip en vez
+-- de que el tejedor vea una curva mas baja que sus registros y sospeche.
+entregas as (
+    select coalesce(json_agg(json_build_object(
+               'mes',   mes,
+               'mecsa', round(mecsa::numeric, 2),
+               'guia',  round(guia::numeric, 2),
+               'n',     n) order by mes), '[]'::json) as meses
+      from (
+        select to_char(to_date(m.fecha, 'DD/MM/YYYY'), 'YYYY-MM') as mes,
+               sum(m.peso_mecsa) as mecsa,
+               sum(m.peso_guia)  as guia,
+               count(*)          as n
+          from mov_segregado m, yo
+         where left(upper(m.suborden), 3) = yo.taller
+           and m.guia ~ '^[0-9]+$'
+           -- Sin llaves: SQL_STOCK es un f-string y Python leeria {1,2} como
+           -- campo de reemplazo (lo evaluaba a la tupla "(1, 2)" y el regex
+           -- no casaba nunca). Clases de caracter hacen lo mismo sin el riesgo.
+           and m.fecha ~ '^[0-9][0-9]?/[0-9][0-9]?/[0-9][0-9][0-9][0-9]$'
+         group by 1
+      ) x
+),
 ult as (
     select max(vez) as vez from logs_ingresos
      where taller = (select taller from yo)
@@ -312,6 +343,7 @@ ultimo as (
 select yo.usuario,
        yo.taller,
        coalesce(nt.nombre, yo.usuario) as nombre_taller,
+       (select meses from entregas) as entregas_mes,
        (select vez from ult)    as ultima_vez,
        s.subos, s.os, s.tejido, s.ancho, s.fibra, s.nombre, s.proveedor,
        s.programado, s.despachado, s.queda, s.fecha_inicio,
@@ -400,6 +432,8 @@ def get_stock(x_token: str | None = Header(default=None)):
         "usuario": cab["usuario"],
         # Solo para el saludo: el nombre comercial, no el usuario de login.
         "nombreTaller": cab["nombre_taller"],
+        # Serie mensual de entregas, para el grafico de "Avance por OS".
+        "entregasMes": cab["entregas_mes"],
         "ultimaVez": cab["ultima_vez"],
         "proximaVez": (cab["ultima_vez"] or 0) + 1,
         "data": data,

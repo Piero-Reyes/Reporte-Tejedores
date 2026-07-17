@@ -171,6 +171,120 @@
   .section-title{ font-size:22px; margin:0 0 4px; font-weight:600; }
   .section-sub{ margin:0 0 20px; color:var(--muted); font-size:13.5px; }
 
+  /* ---------------------------------------------------------- */
+  /* PESTANAS                                                    */
+  /* ---------------------------------------------------------- */
+  .tabs{
+    display:flex; gap:2px; margin-bottom:24px;
+    border-bottom:1px solid var(--line);
+  }
+  .tab{
+    appearance:none; background:transparent; border:none; cursor:pointer;
+    font-family:inherit; font-size:14px; font-weight:600; color:var(--muted);
+    padding:11px 18px; border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  .tab:hover{ color:var(--ink); }
+  .tab[aria-selected="true"]{ color:var(--ink); border-bottom-color:var(--red); }
+  .tab:focus-visible{ outline:2px solid var(--red); outline-offset:-2px; border-radius:4px 4px 0 0; }
+  .vista[hidden]{ display:none; }
+
+  /* ---------------------------------------------------------- */
+  /* VISTA: AVANCE POR OS                                        */
+  /* ---------------------------------------------------------- */
+  /* Marca de datos. NO reusa --steel (#3D5A80): su croma es 0.071, bajo el
+     piso de 0.10 para datos, y se lee gris. Este pasa los tres checks:
+     L .482 (banda .43-.77) · croma .116 · contraste 6.53:1 sobre blanco. */
+  :root{ --dato:#2F5E9E; --dato-track:#E7ECF3; }
+
+  .kpi-row{ display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
+  .kpi{
+    background:var(--card); border:1px solid var(--line);
+    border-top:3px solid var(--dato); border-radius:var(--radius-sm);
+    padding:14px 20px; min-width:160px; flex:1;
+    box-shadow:var(--shadow);
+  }
+  /* Cifras proporcionales, NO tabular-nums: a 26px los digitos de ancho fijo
+     se leen sueltos. tabular-nums va donde los numeros se alinean en columna. */
+  .kpi .n{
+    font-family:'Poppins',sans-serif; font-size:26px; font-weight:600;
+    color:var(--ink); line-height:1.15;
+  }
+  .kpi .n small{ font-size:15px; color:var(--muted); font-weight:500; }
+  .kpi .l{
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--muted-soft); margin-top:3px; font-weight:700;
+  }
+
+  /* Barra = el % de avance, y nada mas. El track siempre mide 130px y el relleno
+     es el %: asi el largo del relleno coincide con el numero de al lado (94% se ve
+     mas corto que 97%). El tamano de la OS en kg no va aqui — vive en la columna
+     "Programado" y en el orden de la tabla, para no cargar la barra con dos datos.
+     Alto 10px (<=24), extremo redondeado 4px, track del mismo ramp. */
+  .medidor{ display:flex; align-items:center; gap:10px; }
+  .medidor-track{
+    width:130px; flex:none; height:10px; background:var(--dato-track);
+    border-radius:5px; overflow:hidden;
+  }
+  .medidor-fill{ height:100%; background:var(--dato); border-radius:0 4px 4px 0; }
+  .medidor-pct{
+    font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums;
+    min-width:36px; text-align:right; font-weight:600;
+  }
+  td.medidor-cell{ text-align:left; padding-left:16px; }
+
+  /* ---- grafico de entregas por mes ---- */
+  .grafico-card{
+    background:var(--card); border:1px solid var(--line);
+    border-radius:var(--radius); box-shadow:var(--shadow);
+    padding:20px 22px 16px; margin-bottom:20px;
+  }
+  .grafico-tit{ font-size:14.5px; font-weight:600; margin:0 0 2px; }
+  .grafico-sub{ font-size:12.5px; color:var(--muted); margin:0 0 16px; }
+  #grafico-wrap{ position:relative; }
+  #grafico svg{ display:block; width:100%; height:auto; }
+  .g-grid{ stroke:#EEF2F7; stroke-width:1; }          /* hairline, solida, recesiva */
+  .g-eje{ fill:var(--muted-soft); font-size:10.5px; font-weight:600;
+          font-variant-numeric:tabular-nums; }
+  .g-area{ fill:var(--dato); fill-opacity:.10; }       /* lavado, no bloque saturado */
+  .g-linea{ fill:none; stroke:var(--dato); stroke-width:2;
+            stroke-linejoin:round; stroke-linecap:round; }
+  .g-punta{ fill:var(--dato); stroke:var(--card); stroke-width:2; }  /* anillo de superficie */
+  .g-hit{ fill:transparent; cursor:pointer; }
+  .g-cross{ stroke:var(--dato); stroke-width:1; stroke-opacity:.35; visibility:hidden; }
+  .g-dot{ fill:var(--dato); stroke:var(--card); stroke-width:2; visibility:hidden; }
+
+  #g-tip{
+    position:absolute; pointer-events:none; opacity:0;
+    background:var(--ink); color:#fff; border-radius:8px;
+    padding:9px 12px; font-size:12px; line-height:1.5;
+    white-space:nowrap; transform:translate(-50%, -100%);
+    transition:opacity .12s ease;
+    box-shadow:0 8px 24px -8px rgba(15,23,42,.5);
+  }
+  #g-tip b{ font-size:13px; }
+  #g-tip .t-mes{ color:#93B4FF; font-weight:700; margin-bottom:3px; }
+  #g-tip .t-dif{ color:#FF8F9B; }
+  #g-tip table{ border-collapse:collapse; }
+  #g-tip td{ padding:1px 0; font-variant-numeric:tabular-nums; }
+  #g-tip td:last-child{ padding-left:12px; text-align:right; }
+  .g-vacio{ padding:34px 20px; text-align:center; color:var(--muted-soft); font-size:13px; }
+
+  @media (prefers-reduced-motion: reduce){
+    #g-tip{ transition:none; }
+    .medidor-fill{ transition:none; }
+  }
+  td.falta-cell{ font-weight:700; }
+  td.cero-cell{ color:var(--muted-soft); font-weight:400; }
+  .os-subs{ color:var(--muted-soft); font-size:11.5px; font-weight:400; }
+  tr.fila-total td{
+    border-top:1.5px solid var(--line); font-weight:700;
+    background:#FAFBFD; border-bottom:none;
+  }
+  tr.fila-total:hover td{ background:#FAFBFD; }
+  .tabla-nota{ font-size:11.5px; color:var(--muted-soft); padding:12px 18px 14px; }
+
   .stats-row{ display:flex; gap:14px; margin-bottom:22px; flex-wrap:wrap; }
   .stat-card{
     background:var(--card);
@@ -394,6 +508,14 @@
   <div class="page-wrap">
     <div class="hello-pill">Hola, <span id="tejedor-name">TEJEDOR</span></div>
 
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tab-stock"  role="tab" aria-selected="true"  aria-controls="vista-stock">Reporte de Stock</button>
+      <button class="tab" id="tab-avance" role="tab" aria-selected="false" aria-controls="vista-avance">Avance por OS</button>
+    </div>
+
+    <!-- ======================= VISTA 1: REPORTE DE STOCK ======================= -->
+    <div class="vista" id="vista-stock" role="tabpanel" aria-labelledby="tab-stock">
+
     <h2 class="section-title">Completa el reporte de Stock</h2>
     <p class="section-sub">Actualiza los rollos y el peso en stock de cada suborden. Los campos traen tu último reporte: revísalos y envía todo junto.</p>
 
@@ -435,6 +557,52 @@
         <button id="enviar-btn" class="btn btn-enviar">Enviar reporte</button>
       </div>
     </div>
+
+    </div><!-- /vista-stock -->
+
+    <!-- ======================= VISTA 2: AVANCE POR OS ======================= -->
+    <div class="vista" id="vista-avance" role="tabpanel" aria-labelledby="tab-avance" hidden>
+
+      <h2 class="section-title">Tu avance por OS</h2>
+      <p class="section-sub">Resumen de cada OS completa, sumando sus subórdenes. Ordenado por lo que falta entregar.</p>
+
+      <div class="kpi-row" id="kpi-row"></div>
+
+      <div class="grafico-card">
+        <h3 class="grafico-tit">Lo que has entregado, mes a mes</h3>
+        <p class="grafico-sub">Kilos que MECSA recibió de ti cada mes. Pasa el dedo o el mouse para ver el detalle.</p>
+        <div id="grafico-wrap">
+          <div id="grafico"></div>
+          <div id="g-tip"></div>
+          <div class="g-vacio" id="g-vacio" style="display:none;">
+            Todavía no hay entregas registradas.
+          </div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>OS</th>
+                <th>Programado (kg)</th>
+                <th>Entregado (kg)</th>
+                <th>Te falta (kg)</th>
+                <th>Avance</th>
+              </tr>
+            </thead>
+            <tbody id="avance-body"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="avance-vacio" style="display:none;">
+          No tienes OS asignadas por el momento.
+        </div>
+        <p class="tabla-nota" id="avance-nota">Ordenado por lo que falta entregar: arriba está tu trabajo pendiente.</p>
+      </div>
+
+    </div><!-- /vista-avance -->
+
   </div>
 </div>
 
@@ -456,6 +624,7 @@
 let TOKEN = sessionStorage.getItem("tejedor_token") || null;
 let FILAS = [];        // ultimo payload del server
 let ESTADO = {};       // subos -> {rollos, peso, finalizado} editado por el usuario
+let ENTREGAS = [];     // serie mensual [{mes, mecsa, guia, n}] para el grafico
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -557,6 +726,7 @@ async function cargarStock() {
   }
 
   FILAS = r.data;
+  ENTREGAS = r.entregasMes || [];
   ESTADO = {};
   // Mismo criterio que el AppScript, verificado sobre su HTML:
   //   - rollos y peso arrancan VACIOS (0 de 16 inputs traen `value`). Son el
@@ -592,8 +762,216 @@ function renderStats() {
   `;
 }
 
+/* ------------------------------------------------------------------ */
+/* vista 2: avance por OS                                              */
+/* ------------------------------------------------------------------ */
+
+/* Agrega las subordenes por OS. Se hace aqui y no en el servidor porque
+   /api/stock ya trae programado/despachado/queda de cada una: pedirlo otra
+   vez costaria un round-trip (~170ms a us-west-2) para sumar lo que ya esta. */
+function agruparPorOS() {
+  const porOS = new Map();
+  FILAS.forEach(f => {
+    let g = porOS.get(f.os);
+    if (!g) {
+      g = { os: f.os, subs: 0, programado: 0, despachado: 0, queda: 0 };
+      porOS.set(f.os, g);
+    }
+    g.subs++;
+    g.programado += Number(f.programado) || 0;
+    g.despachado += Number(f.despachado) || 0;
+    g.queda      += Number(f.queda) || 0;
+  });
+  // Por lo que falta, no por numero de OS: en RSA dos OS concentran 7,528 de
+  // los 9,594 kg pendientes. Ordenadas por numero quedarian bajo 19 filas al 97%.
+  return [...porOS.values()].sort((a, b) => b.queda - a.queda);
+}
+
+/* La barra muestra SOLO el % de avance: track fijo, relleno = %. */
+function medidor(programado, despachado) {
+  const pct = programado ? Math.min(100, Math.round(despachado / programado * 100)) : 0;
+  return `<div class="medidor">
+    <div class="medidor-track"><div class="medidor-fill" style="width:${pct}%"></div></div>
+    <span class="medidor-pct">${pct}%</span>
+  </div>`;
+}
+
+function renderAvance() {
+  const grupos = agruparPorOS();
+  const tbody = document.getElementById("avance-body");
+  const vacio = document.getElementById("avance-vacio");
+  const nota  = document.getElementById("avance-nota");
+
+  if (!grupos.length) {
+    tbody.innerHTML = "";
+    vacio.style.display = "block";
+    nota.style.display = "none";
+    document.getElementById("kpi-row").innerHTML = "";
+    return;
+  }
+  vacio.style.display = "none";
+  nota.style.display = "block";
+
+  const tProg  = grupos.reduce((s, g) => s + g.programado, 0);
+  const tDesp  = grupos.reduce((s, g) => s + g.despachado, 0);
+  const tQueda = grupos.reduce((s, g) => s + g.queda, 0);
+  const tPct   = tProg ? Math.round(tDesp / tProg * 100) : 0;
+
+  document.getElementById("kpi-row").innerHTML = `
+    <div class="kpi"><div class="n">${grupos.length}</div><div class="l">OS en proceso</div></div>
+    <div class="kpi"><div class="n">${formatKg(tQueda)}<small> kg</small></div><div class="l">Te falta entregar</div></div>
+    <div class="kpi"><div class="n">${tPct}<small>%</small></div><div class="l">Avance total</div></div>
+  `;
+
+  tbody.innerHTML = grupos.map(g => `
+      <tr>
+        <td class="os-cell">${g.os} <span class="os-subs">${g.subs} sub</span></td>
+        <td class="num-cell">${formatKg(g.programado)}</td>
+        <td class="num-cell ${g.despachado ? "" : "cero-cell"}">${formatKg(g.despachado)}</td>
+        <td class="num-cell falta-cell">${formatKg(g.queda)}</td>
+        <td class="medidor-cell">${medidor(g.programado, g.despachado)}</td>
+      </tr>`).join("") + `
+      <tr class="fila-total">
+        <td class="os-cell">TOTAL</td>
+        <td class="num-cell">${formatKg(tProg)}</td>
+        <td class="num-cell">${formatKg(tDesp)}</td>
+        <td class="num-cell">${formatKg(tQueda)}</td>
+        <td class="medidor-cell">${medidor(tProg, tDesp)}</td>
+      </tr>`;
+}
+
+/* ---- grafico de entregas por mes (area de una serie, SVG) ---- */
+const MESES_CORTO = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+function etiquetaMes(iso) {              // "2026-06" -> "jun 26"
+  const [a, m] = iso.split("-");
+  return `${MESES_CORTO[Number(m) - 1]} ${a.slice(2)}`;
+}
+
+function renderGrafico() {
+  const datos = ENTREGAS;
+  const cont = document.getElementById("grafico");
+  const vacio = document.getElementById("g-vacio");
+
+  // TSI y cualquier taller sin entregas: mensaje, no un eje vacio.
+  if (!datos || datos.length === 0) {
+    cont.innerHTML = "";
+    vacio.style.display = "block";
+    return;
+  }
+  vacio.style.display = "none";
+
+  // viewBox fijo; el SVG escala al ancho del contenedor via CSS.
+  const W = 640, H = 240, mL = 52, mR = 16, mT = 16, mB = 34;
+  const pw = W - mL - mR, ph = H - mT - mB;
+
+  const maxKg = Math.max(...datos.map(d => d.mecsa));
+  const techo = Math.ceil(maxKg / 2000) * 2000 || 2000;   // redondea a 2000 arriba
+  const n = datos.length;
+
+  const x = i => mL + (n === 1 ? pw / 2 : (i / (n - 1)) * pw);
+  const y = v => mT + ph - (v / techo) * ph;
+
+  // rejilla horizontal + ticks del eje Y (0, 2000, ...)
+  let grid = "", ticks = "";
+  for (let v = 0; v <= techo; v += 2000) {
+    grid  += `<line class="g-grid" x1="${mL}" y1="${y(v).toFixed(1)}" x2="${W - mR}" y2="${y(v).toFixed(1)}"/>`;
+    ticks += `<text class="g-eje" x="${mL - 8}" y="${(y(v) + 3.5).toFixed(1)}" text-anchor="end">${(v / 1000)}k</text>`;
+  }
+
+  // etiquetas del eje X
+  let xlab = "";
+  datos.forEach((d, i) => {
+    xlab += `<text class="g-eje" x="${x(i).toFixed(1)}" y="${H - 12}" text-anchor="middle">${etiquetaMes(d.mes)}</text>`;
+  });
+
+  const linea = datos.map((d, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(d.mecsa).toFixed(1)}`).join(" ");
+  const area = `M${x(0).toFixed(1)},${y(0).toFixed(1)} ` +
+    datos.map((d, i) => `L${x(i).toFixed(1)},${y(d.mecsa).toFixed(1)}`).join(" ") +
+    ` L${x(n - 1).toFixed(1)},${y(0).toFixed(1)} Z`;
+
+  // punto final resaltado (el mes mas reciente)
+  const ultimo = `<circle class="g-punta" cx="${x(n - 1).toFixed(1)}" cy="${y(datos[n - 1].mecsa).toFixed(1)}" r="4.5"/>`;
+
+  cont.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Kilos entregados por mes">
+      ${grid}${ticks}${xlab}
+      <path class="g-area" d="${area}"/>
+      <path class="g-linea" d="${linea}"/>
+      ${ultimo}
+      <line class="g-cross" id="g-cross" x1="0" y1="${mT}" x2="0" y2="${mT + ph}"/>
+      <circle class="g-dot" id="g-dot" r="5"/>
+      <rect class="g-hit" id="g-hit" x="${mL}" y="${mT}" width="${pw}" height="${ph}"/>
+    </svg>`;
+
+  // ---- hover: crosshair + tooltip al punto mas cercano ----
+  const svg = cont.querySelector("svg");
+  const hit = cont.querySelector("#g-hit");
+  const cross = cont.querySelector("#g-cross");
+  const dot = cont.querySelector("#g-dot");
+  const tip = document.getElementById("g-tip");
+  const wrap = document.getElementById("grafico-wrap");
+
+  function mostrar(ev) {
+    const r = svg.getBoundingClientRect();
+    const px = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    const sx = (px - r.left) / r.width * W;                 // px pantalla -> unidades viewBox
+    let i = 0, best = Infinity;
+    datos.forEach((d, k) => { const dd = Math.abs(x(k) - sx); if (dd < best) { best = dd; i = k; } });
+    const d = datos[i];
+
+    cross.setAttribute("x1", x(i).toFixed(1));
+    cross.setAttribute("x2", x(i).toFixed(1));
+    cross.style.visibility = "visible";
+    dot.setAttribute("cx", x(i).toFixed(1));
+    dot.setAttribute("cy", y(d.mecsa).toFixed(1));
+    dot.style.visibility = "visible";
+
+    const dif = d.guia - d.mecsa;
+    tip.innerHTML = `<div class="t-mes">${etiquetaMes(d.mes)}</div>
+      <table>
+        <tr><td>Entregado</td><td><b>${formatKg(d.mecsa)} kg</b></td></tr>
+        <tr><td>${d.n} guía${d.n === 1 ? "" : "s"}</td><td></td></tr>
+        ${dif > 0.005 ? `<tr><td class="t-dif">Según tus guías</td><td class="t-dif">${formatKg(d.guia)} kg</td></tr>` : ""}
+      </table>`;
+    // posicion en px del contenedor
+    tip.style.left = (x(i) / W * r.width) + "px";
+    tip.style.top = (y(d.mecsa) / H * r.height - 10) + "px";
+    tip.style.opacity = "1";
+  }
+  function ocultar() {
+    cross.style.visibility = "hidden";
+    dot.style.visibility = "hidden";
+    tip.style.opacity = "0";
+  }
+  hit.addEventListener("mousemove", mostrar);
+  hit.addEventListener("mouseleave", ocultar);
+  hit.addEventListener("touchstart", mostrar, { passive: true });
+  hit.addEventListener("touchmove", mostrar, { passive: true });
+  wrap.addEventListener("touchend", ocultar);
+}
+
+/* pestanas */
+const TABS = [
+  { tab: "tab-stock",  vista: "vista-stock" },
+  { tab: "tab-avance", vista: "vista-avance" },
+];
+TABS.forEach(({ tab, vista }) => {
+  document.getElementById(tab).addEventListener("click", () => {
+    TABS.forEach(t => {
+      const activa = t.tab === tab;
+      document.getElementById(t.tab).setAttribute("aria-selected", String(activa));
+      document.getElementById(t.vista).hidden = !activa;
+    });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+
 function renderTable() {
   renderStats();
+  renderAvance();
+  renderGrafico();
 
   const tbody = document.getElementById("table-body");
   const emptyState = document.getElementById("empty-state");
