@@ -172,6 +172,9 @@
   .section-sub{ margin:0 0 20px; color:var(--muted); font-size:13.5px; }
 
   /* ---- barra de admin (viendo avances de tejedores) ---- */
+  /* [hidden] gana al display:flex: sin esto la barra saldria para todos,
+     porque el display del autor anula el display:none del atributo hidden. */
+  .admin-bar[hidden]{ display:none; }
   .admin-bar{
     display:flex; align-items:center; gap:18px; flex-wrap:wrap;
     background:var(--card); border:1px solid var(--line);
