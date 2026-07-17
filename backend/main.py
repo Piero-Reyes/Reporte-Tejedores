@@ -268,13 +268,13 @@ subordenes as (
 """
 
 # Todo en un solo round-trip: resuelve el token, saca el `vez` y trae las filas.
-# El LEFT JOIN desde `yo` garantiza >=1 fila si el token es valido aunque no haya
-# subordenes, para poder distinguir "sin trabajo" de "token invalido".
+# `yo` recibe usuario+taller ya resueltos (la auth y el rol se validan en Python,
+# en get_stock). Asi la MISMA query sirve al tejedor (su taller, del token) y al
+# admin (el taller que elige). El LEFT JOIN desde `yo` garantiza >=1 fila aunque el
+# taller no tenga subordenes, para distinguir "sin trabajo" de un taller vacio.
 SQL_STOCK = f"""
 with yo as (
-    select usuario, tejedor as taller
-      from usuarios
-     where token = %(token)s and activo = 1 and es_tejedor = 1 and tejedor <> ''
+    select %(usuario)s::text as usuario, %(taller)s::text as taller
 ),
 -- Nombre comercial del taller para el saludo, tal como lo muestra el AppScript
 -- ("Hola, FAMICOTTON", "Hola, TEXTIL DEFRANCO E.I.R.L."): sale de
@@ -402,18 +402,42 @@ def _fecha_iso(v: str | None) -> str | None:
 
 
 
+def _talleres_activos(conn) -> list[dict]:
+    """Talleres con subordenes PENDIENTE en guia_os: el set que el admin puede ver."""
+    return [dict(r) for r in conn.execute(
+        """select left(orden,3) as codigo,
+                  max(proveedor_tejeduria) as nombre,
+                  count(*) filter (where upper(trim(estado)) = 'PENDIENTE') as pendientes
+             from guia_os where orden is not null and orden <> ''
+            group by 1
+           having count(*) filter (where upper(trim(estado)) = 'PENDIENTE') > 0
+            order by max(proveedor_tejeduria)"""
+    ).fetchall()]
+
+
 @app.get("/api/stock")
-def get_stock(x_token: str | None = Header(default=None)):
-    if not x_token:
-        raise HTTPException(401, "Falta el token de sesion.")
+def get_stock(x_token: str | None = Header(default=None), taller: str | None = None):
+    # La auth y el rol se resuelven aca (no en el SQL): un tejedor solo ve SU
+    # taller (del token, ignora el parametro); un admin ve el que elige.
+    u = usuario_desde_token(x_token)
+
+    if u["es_tejedor"] and u["tejedor"]:
+        taller_ef, usuario_ef, rol = u["tejedor"], u["usuario"], "tejedor"
+    elif u["es_admin"]:
+        rol = "admin"
+        if not taller:
+            # Sin taller elegido: el admin recibe solo la lista para el selector.
+            with db() as conn:
+                return {"rol": "admin", "talleres": _talleres_activos(conn), "data": []}
+        taller_ef, usuario_ef = taller.strip().upper(), u["usuario"]
+    else:
+        raise HTTPException(403, "Este usuario no tiene acceso.")
 
     with db() as conn:
-        filas = conn.execute(SQL_STOCK, {"token": x_token}).fetchall()
+        filas = conn.execute(SQL_STOCK, {"usuario": usuario_ef, "taller": taller_ef}).fetchall()
+        talleres = _talleres_activos(conn) if rol == "admin" else None
 
-    if not filas:
-        raise HTTPException(401, "Sesion invalida o usuario sin acceso de tejedor.")
-
-    cab = filas[0]
+    cab = filas[0]   # `yo` siempre da >=1 fila; no puede venir vacio
 
     data = []
     for f in filas:
@@ -427,7 +451,8 @@ def get_stock(x_token: str | None = Header(default=None)):
             g["fecha"] = _fecha_iso(g.get("fecha"))
         data.append(fila)
 
-    return {
+    resp = {
+        "rol": rol,
         "taller": cab["taller"],
         "usuario": cab["usuario"],
         # Solo para el saludo: el nombre comercial, no el usuario de login.
@@ -438,6 +463,9 @@ def get_stock(x_token: str | None = Header(default=None)):
         "proximaVez": (cab["ultima_vez"] or 0) + 1,
         "data": data,
     }
+    if talleres is not None:      # admin: mantiene poblado el selector de talleres
+        resp["talleres"] = talleres
+    return resp
 
 
 # ---------------------------------------------------------------- admin

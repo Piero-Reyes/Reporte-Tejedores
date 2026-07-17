@@ -171,6 +171,39 @@
   .section-title{ font-size:22px; margin:0 0 4px; font-weight:600; }
   .section-sub{ margin:0 0 20px; color:var(--muted); font-size:13.5px; }
 
+  /* ---- barra de admin (viendo avances de tejedores) ---- */
+  .admin-bar{
+    display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+    background:var(--card); border:1px solid var(--line);
+    border-left:3px solid var(--red);
+    border-radius:var(--radius-sm); padding:12px 18px; margin-bottom:22px;
+  }
+  .admin-bar-lbl{ font-size:13.5px; font-weight:600; color:var(--ink);
+                  display:flex; align-items:center; gap:9px; }
+  .admin-chip{
+    font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    background:var(--red); color:#fff; padding:3px 8px; border-radius:999px;
+  }
+  .admin-sel{ display:flex; align-items:center; gap:8px; font-size:13px;
+              color:var(--muted); font-weight:600; }
+  .admin-sel select{
+    font-family:inherit; font-size:14px; font-weight:600; color:var(--ink);
+    padding:8px 12px; border-radius:9px; border:1.5px solid var(--line);
+    background:#FBFCFE; cursor:pointer; min-width:220px;
+  }
+  .admin-sel select:focus{ outline:none; border-color:var(--red);
+                           box-shadow:0 0 0 3px rgba(225,29,46,.14); }
+  .admin-link{ margin-left:auto; font-size:13px; font-weight:600;
+               color:var(--red); text-decoration:none; }
+  .admin-link:hover{ text-decoration:underline; }
+
+  /* modo lectura (admin): inputs deshabilitados se ven como texto, no como campos */
+  .solo-lectura .stock-input{
+    border-color:transparent; background:transparent; padding-left:0;
+    color:var(--ink); pointer-events:none;
+  }
+  .solo-lectura .estado-check{ pointer-events:none; opacity:.85; }
+
   /* ---------------------------------------------------------- */
   /* PESTANAS                                                    */
   /* ---------------------------------------------------------- */
@@ -511,7 +544,20 @@
   </div>
 
   <div class="page-wrap">
-    <div class="hello-pill">Hola, <span id="tejedor-name">TEJEDOR</span></div>
+    <div class="hello-pill" id="hello-pill">Hola, <span id="tejedor-name">TEJEDOR</span></div>
+
+    <!-- Barra de admin: solo visible cuando entra un administrador. -->
+    <div class="admin-bar" id="admin-bar" hidden>
+      <div class="admin-bar-lbl">
+        <span class="admin-chip">Admin</span>
+        Avances de tejedores
+      </div>
+      <label class="admin-sel">
+        Taller
+        <select id="admin-taller"></select>
+      </label>
+      <a href="admin" class="admin-link">Gestionar accesos →</a>
+    </div>
 
     <div class="tabs" role="tablist">
       <button class="tab" id="tab-stock"  role="tab" aria-selected="true"  aria-controls="vista-stock">Reporte de Stock</button>
@@ -626,7 +672,9 @@
      Guardar fila por fila generaria N `vez` distintos y romperia eso.
    ================================================================== */
 
-let TOKEN = sessionStorage.getItem("tejedor_token") || null;
+// Un admin que entro por /admin trae "admin_token"; un tejedor, "tejedor_token".
+let TOKEN = sessionStorage.getItem("tejedor_token") || sessionStorage.getItem("admin_token") || null;
+let ROL = null;        // "tejedor" | "admin" — lo dice /api/stock
 let FILAS = [];        // ultimo payload del server
 let ESTADO = {};       // subos -> {rollos, peso, finalizado} editado por el usuario
 let ENTREGAS = [];     // serie mensual [{mes, mecsa, guia, n}] para el grafico
@@ -682,7 +730,8 @@ loginForm.addEventListener("submit", async function (e) {
       body: JSON.stringify({ usuario, clave }),
     });
     TOKEN = r.token;
-    sessionStorage.setItem("tejedor_token", TOKEN);
+    // Guarda bajo la clave del rol: asi /admin y el portal comparten sesion.
+    sessionStorage.setItem(r.rol === "admin" ? "admin_token" : "tejedor_token", TOKEN);
     loginError.style.display = "none";
     await entrar();
   } catch (err) {
@@ -695,9 +744,15 @@ loginForm.addEventListener("submit", async function (e) {
 
 document.getElementById("logout-btn").addEventListener("click", function () {
   sessionStorage.removeItem("tejedor_token");
+  sessionStorage.removeItem("admin_token");
   TOKEN = null;
+  ROL = null;
   FILAS = [];
   ESTADO = {};
+  // Deja la UI lista por si el proximo login es de otro rol.
+  document.getElementById("admin-bar").hidden = true;
+  document.getElementById("hello-pill").hidden = false;
+  dashboard.classList.remove("solo-lectura");
   dashboard.style.display = "none";
   loginScreen.style.display = "flex";
   loginForm.reset();
@@ -723,6 +778,7 @@ async function cargarStock() {
   } catch (err) {
     // token vencido o invalido -> de vuelta al login
     sessionStorage.removeItem("tejedor_token");
+    sessionStorage.removeItem("admin_token");
     TOKEN = null;
     dashboard.style.display = "none";
     loginScreen.style.display = "flex";
@@ -730,24 +786,78 @@ async function cargarStock() {
     return;
   }
 
+  ROL = r.rol;
+  if (ROL === "admin") {
+    prepararAdmin(r.talleres || []);
+    return;                    // el admin elige un taller y ahi se pinta
+  }
+  pintarPortal(r);             // tejedor: su propio taller
+}
+
+/* Admin: llena el selector de talleres y espera a que elija uno. */
+function prepararAdmin(talleres) {
+  document.getElementById("admin-bar").hidden = false;
+  document.getElementById("hello-pill").hidden = true;
+
+  const sel = document.getElementById("admin-taller");
+  sel.innerHTML = `<option value="">Elige un taller…</option>` +
+    talleres.map(t => `<option value="${t.codigo}">${t.nombre || t.codigo} (${t.pendientes})</option>`).join("");
+
+  sel.onchange = () => { if (sel.value) cargarTaller(sel.value); };
+
+  // estado inicial: aun sin taller elegido
+  document.getElementById("table-body").innerHTML =
+    `<tr><td colspan="13" style="padding:32px;text-align:center;color:var(--muted-soft)">Elige un taller arriba para ver su avance.</td></tr>`;
+  document.getElementById("table-foot").style.display = "none";
+  document.getElementById("kpi-row").innerHTML = "";
+  document.getElementById("avance-body").innerHTML = "";
+}
+
+/* Admin: carga el taller elegido (solo lectura). */
+async function cargarTaller(taller) {
+  try {
+    const r = await api("api/stock?taller=" + encodeURIComponent(taller));
+    pintarPortal(r);
+  } catch (err) {
+    showToast("Error: " + err.message);
+  }
+}
+
+/* Pinta ambas vistas a partir de un payload de /api/stock.
+   Lo comparten el tejedor (editable) y el admin (solo lectura). */
+function pintarPortal(r) {
+  const esAdmin = ROL === "admin";
   FILAS = r.data;
   ENTREGAS = r.entregasMes || [];
   ESTADO = {};
-  // Mismo criterio que el AppScript, verificado sobre su HTML:
-  //   - rollos y peso arrancan VACIOS (0 de 16 inputs traen `value`). Son el
-  //     conteo del dia; arrastrar el del reporte anterior se leeria como stock
-  //     de hoy y un Enviar distraido lo daria por vigente.
-  //   - el checkbox SI arrastra el ultimo estado conocido (7 de 16 traen
-  //     `checked`): no es un conteo, es una condicion de la suborden.
   FILAS.forEach(f => {
-    ESTADO[f.subos] = { rollos: null, peso: null, finalizado: !!f.finalizado };
+    // Tejedor: campos en blanco (conteo del dia, como el AppScript).
+    // Admin: muestra lo ULTIMO que reporto ese taller — es lo que va a monitorear.
+    ESTADO[f.subos] = esAdmin
+      ? { rollos: f.rollos, peso: f.peso, finalizado: !!f.finalizado }
+      : { rollos: null, peso: null, finalizado: !!f.finalizado };
   });
 
-  // El saludo usa el nombre comercial del taller (el mismo del AppScript),
-  // no el usuario de login. Solo para eso: el resto sigue con `usuario`/`taller`.
-  document.getElementById("tejedor-name").textContent = r.nombreTaller || r.usuario;
-  document.getElementById("vez-num").textContent = "#" + r.proximaVez;
+  if (esAdmin) {
+    document.getElementById("tejedor-name").textContent = r.nombreTaller || r.taller;
+    document.querySelector("#vista-stock .section-sub").textContent =
+      "Último reporte de este taller (solo lectura). El reporte #" + r.ultimaVez + " fue el más reciente.";
+  } else {
+    document.getElementById("tejedor-name").textContent = r.nombreTaller || r.usuario;
+    document.getElementById("vez-num").textContent = "#" + r.proximaVez;
+  }
+
   renderTable();
+  aplicarModoLectura(esAdmin);
+}
+
+/* Modo lectura del admin: inputs sin editar, sin boton de enviar. */
+function aplicarModoLectura(activo) {
+  const dash = document.getElementById("dashboard");
+  dash.classList.toggle("solo-lectura", activo);
+  document.getElementById("table-foot").style.display = activo ? "none" : "flex";
+  document.querySelectorAll("#table-body .stock-input").forEach(i => { i.readOnly = activo; });
+  document.querySelectorAll("#table-body .estado-check").forEach(c => { c.disabled = activo; });
 }
 
 function renderStats() {

@@ -69,6 +69,8 @@
   #logout-btn{ background:transparent; border:1.5px solid var(--line); color:#475569;
                padding:8px 14px; font-size:13px; }
   #logout-btn:hover{ border-color:#CBD5E1; background:#F8FAFC; }
+  .topbar-link{ font-size:13px; font-weight:600; color:var(--red); text-decoration:none; }
+  .topbar-link:hover{ text-decoration:underline; }
 
   .page-wrap{ max-width:1040px; margin:0 auto; padding:28px 28px 80px; }
   .section-title{ font-size:20px; margin:0 0 4px; }
@@ -139,7 +141,10 @@
       <div class="swatch"></div>
       <span>Reporte de Avance · Accesos</span>
     </div>
-    <button id="logout-btn" class="btn">Cerrar sesión</button>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <a href="./" class="topbar-link">Ver avances de tejedores →</a>
+      <button id="logout-btn" class="btn">Cerrar sesión</button>
+    </div>
   </div>
 
   <div class="page-wrap">
