@@ -213,6 +213,12 @@ function alerta(msg, tipo) {
   setTimeout(() => { el.className = "alerta"; }, 4000);
 }
 
+/* Escapa texto antes de innerHTML: usuario/taller pueden traer caracteres HTML. */
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g,
+    c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 /* login */
 const loginForm = document.getElementById("login-form");
 loginForm.addEventListener("submit", async e => {
@@ -242,6 +248,7 @@ loginForm.addEventListener("submit", async e => {
 });
 
 document.getElementById("logout-btn").addEventListener("click", () => {
+  if (TOKEN) { api("api/logout", { method: "POST" }).catch(() => {}); }
   sessionStorage.removeItem("admin_token");
   TOKEN = null;
   document.getElementById("panel").style.display = "none";
@@ -270,7 +277,7 @@ async function cargar() {
 
   const sel = document.getElementById("f-taller");
   sel.innerHTML = `<option value="">Elige un taller…</option>` + r.talleres.map(t =>
-    `<option value="${t.codigo}">${t.codigo} — ${t.nombre || "?"} (${t.pendientes} pend.)</option>`
+    `<option value="${esc(t.codigo)}">${esc(t.codigo)} — ${esc(t.nombre || "?")} (${t.pendientes} pend.)</option>`
   ).join("");
 
   const tbody = document.getElementById("tbody");
@@ -283,12 +290,12 @@ async function cargar() {
   empty.style.display = "none";
   tbody.innerHTML = r.usuarios.map(u => `
     <tr>
-      <td><strong>${u.usuario}</strong></td>
-      <td class="taller-cell">${u.taller}</td>
+      <td><strong>${esc(u.usuario)}</strong></td>
+      <td class="taller-cell">${esc(u.taller)}</td>
       <td><span class="pill ${u.activo ? "on" : "off"}">${u.activo ? "Activo" : "Inactivo"}</span></td>
       <td class="acciones">
-        <button class="mini" data-edit="${u.usuario}" data-taller="${u.taller}">Editar</button>
-        <button class="mini del" data-del="${u.usuario}">Borrar</button>
+        <button class="mini" data-edit="${esc(u.usuario)}" data-taller="${esc(u.taller)}">Editar</button>
+        <button class="mini del" data-del="${esc(u.usuario)}">Borrar</button>
       </td>
     </tr>
   `).join("");
