@@ -235,9 +235,9 @@
   .sub-tabla{ width:100%; border-collapse:collapse; margin-top:6px; background:#fff;
     border:1px solid var(--line); border-radius:10px; overflow:hidden; }
   .sub-tabla th{ background:var(--steel-soft); color:var(--muted); font-size:11px;
-    text-transform:uppercase; letter-spacing:.03em; padding:8px 10px; text-align:left; }
-  .sub-tabla td{ padding:8px 10px; border-top:1px solid var(--line); font-size:13.5px; }
-  .sub-tabla .n{ text-align:right; font-variant-numeric:tabular-nums; }
+    text-transform:uppercase; letter-spacing:.03em; padding:8px 10px; text-align:center; }
+  .sub-tabla td{ padding:8px 10px; border-top:1px solid var(--line); font-size:13.5px;
+    text-align:center; font-variant-numeric:tabular-nums; }
   .caret-os{ margin-right:2px; }
 
   .fecha-liq-input{
@@ -303,7 +303,7 @@
      mas corto que 97%). El tamano de la OS en kg no va aqui — vive en la columna
      "Programado" y en el orden de la tabla, para no cargar la barra con dos datos.
      Alto 10px (<=24), extremo redondeado 4px, track del mismo ramp. */
-  .medidor{ display:flex; align-items:center; gap:10px; }
+  .medidor{ display:flex; align-items:center; gap:10px; justify-content:center; }
   .medidor-track{
     width:130px; flex:none; height:10px; background:var(--dato-track);
     border-radius:5px; overflow:hidden;
@@ -313,7 +313,7 @@
     font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums;
     min-width:36px; text-align:right; font-weight:600;
   }
-  td.medidor-cell{ text-align:left; padding-left:16px; }
+  td.medidor-cell{ text-align:center; }
 
   /* ---- grafico de entregas por mes ---- */
   .grafico-card{
@@ -1150,25 +1150,24 @@ function estadoSub(f) {
 function renderDesglose(g, esAdmin) {
   const filas = g.items.map(f => {
     const est = estadoSub(f);
-    const accion = (esAdmin && f.cerrada)
-      ? `<button class="reabrir-btn" data-reabrir="${esc(f.subos)}">Reabrir</button>` : "";
+    // El admin reabre una cerrada desde aqui mismo, junto al estado (sin columna aparte).
+    const reabrir = (esAdmin && f.cerrada)
+      ? ` <button class="reabrir-btn" data-reabrir="${esc(f.subos)}">Reabrir</button>` : "";
     return `<tr>
       <td>${esc(f.tejido || "—")}</td>
-      <td class="n">${esc(f.ancho || "")}</td>
-      <td class="n">${formatKg(f.programado)}</td>
-      <td class="n">${formatKg(f.despachado)}</td>
-      <td class="n">${formatKg(f.queda)}</td>
-      <td><span class="estado-badge ${est.cls}">${est.txt}</span></td>
-      ${esAdmin ? `<td>${accion}</td>` : ""}
+      <td>${esc(f.ancho || "")}</td>
+      <td>${formatKg(f.programado)}</td>
+      <td>${formatKg(f.despachado)}</td>
+      <td>${formatKg(f.queda)}</td>
+      <td><span class="estado-badge ${est.cls}">${est.txt}</span>${reabrir}</td>
     </tr>`;
   }).join("");
   return `<div class="desglose">
     <div class="detalle-tit">Subórdenes de ${esc(g.os)}</div>
     <table class="sub-tabla">
       <thead><tr>
-        <th>Tejido</th><th class="n">Ancho</th><th class="n">Programado</th>
-        <th class="n">Entregado</th><th class="n">Falta</th><th>Estado</th>
-        ${esAdmin ? "<th>Acción</th>" : ""}
+        <th>Tejido</th><th>Ancho</th><th>Programado</th>
+        <th>Entregado</th><th>Falta</th><th>Estado</th>
       </tr></thead>
       <tbody>${filas}</tbody>
     </table>
@@ -1422,41 +1421,33 @@ function renderGuias(row) {
     </div>`;
   }
 
-  let tRollos = 0, tGuia = 0, tMecsa = 0;
+  let tRollos = 0, tGuia = 0;
   const filas = gs.map(g => {
-    const pg = g.peso_guia || 0, pm = g.peso_mecsa || 0, dif = pg - pm;
-    tRollos += g.rollos || 0; tGuia += pg; tMecsa += pm;
+    const pg = g.peso_guia || 0;
+    tRollos += g.rollos || 0; tGuia += pg;
     return `<tr>
       <td><strong>${esc(g.guia)}</strong></td>
-      <td>${esc(g.parte || "—")}</td>
       <td>${esc(g.fecha || "—")}</td>
       <td class="n">${g.rollos ?? "—"}</td>
       <td class="n">${formatKg(pg)}</td>
-      <td class="n">${formatKg(pm)}</td>
-      <td class="n ${dif > 0.005 ? "dif-pos" : ""}">${dif > 0.005 ? "−" + formatKg(dif) : "—"}</td>
     </tr>`;
   }).join("");
-
-  const difTotal = tGuia - tMecsa;
 
   return `<div class="detalle">
     <div class="detalle-tit">Guías de remisión · ${gs.length}</div>
     <table class="guias">
       <thead>
         <tr>
-          <th>GUÍA</th><th>PARTE ENTRADA</th><th>FECHA</th>
+          <th>GUÍA</th><th>FECHA</th>
           <th class="n">ROLLOS</th><th class="n">PESO GUÍA</th>
-          <th class="n">PESO MECSA</th><th class="n">DIF.</th>
         </tr>
       </thead>
       <tbody>${filas}</tbody>
       <tfoot>
         <tr>
-          <td colspan="3">TOTAL</td>
+          <td colspan="2">TOTAL</td>
           <td class="n">${tRollos}</td>
           <td class="n">${formatKg(tGuia)}</td>
-          <td class="n">${formatKg(tMecsa)}</td>
-          <td class="n ${difTotal > 0.005 ? "dif-pos" : ""}">${difTotal > 0.005 ? "−" + formatKg(difTotal) : "—"}</td>
         </tr>
       </tfoot>
     </table>
