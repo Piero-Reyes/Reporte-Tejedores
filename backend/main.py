@@ -248,6 +248,11 @@ class TejedorReq(BaseModel):
     activo: bool = True
 
 
+class CierreReq(BaseModel):
+    subos: str
+    cerrada: bool = True          # True = cerrar; False = reabrir
+
+
 # ---------------------------------------------------------------- endpoints
 
 PORTAL_HTML = os.path.join(os.path.dirname(__file__), "..", "reporte-tejedores.html")
@@ -454,6 +459,11 @@ ultimo as (
      where l.taller = (select taller from yo)
      order by l.subos, l.vez desc
 ),
+-- Subordenes que el admin ya CERRO: el tejedor deja de verlas en Reporte de Stock,
+-- pero siguen en "Avance por OS" como historico. Tabla propia del portal.
+cerradas as (
+    select subos from subordenes_cerradas where taller = (select taller from yo)
+),
 {SQL_SUBORDENES}
 select yo.usuario,
        yo.taller,
@@ -466,6 +476,7 @@ select yo.usuario,
        r.peso                   as peso,
        coalesce(r.finalizado, 0) as finalizado,
        r.fecha_liquidacion      as fecha_liquidacion,
+       (cc.subos is not null)   as cerrada,
        -- Desglose del `despachado`: las guias de remision que lo componen.
        -- Va como agregado JSON para no gastar un segundo round-trip (~170ms).
        --
@@ -491,12 +502,13 @@ select yo.usuario,
   left join nombre_taller nt on nt.taller = yo.taller
   left join subordenes s on true
   left join ultimo r on r.subos = s.subos
+  left join cerradas cc on cc.subos = s.subos
  order by s.os, s.tejido
 """
 
 CAMPOS_FILA = ("subos", "os", "tejido", "ancho", "fibra", "nombre", "proveedor",
                "programado", "despachado", "queda", "fecha_inicio",
-               "rollos", "peso", "finalizado", "fecha_liquidacion", "guias")
+               "rollos", "peso", "finalizado", "fecha_liquidacion", "cerrada", "guias")
 
 
 def _fecha_iso(v: str | None) -> str | None:
@@ -693,6 +705,28 @@ def eliminar_tejedor(req: dict, x_token: str | None = Header(default=None)):
     if not n:
         raise HTTPException(404, "No se encontro ese tejedor.")
     return {"ok": True, "usuario": usuario}
+
+
+@app.post("/api/admin/cerrar")
+def cerrar_suborden(req: CierreReq, x_token: str | None = Header(default=None)):
+    """El admin CIERRA (o REABRE) una suborden que el tejedor dio por terminada.
+    Cerrada = deja de verse en Reporte de Stock del tejedor; sigue en Avance por OS."""
+    u = admin_desde_token(x_token)
+    subos = (req.subos or "").strip()
+    if not subos:
+        raise HTTPException(400, "Falta la suborden.")
+    taller = subos[:3].upper()          # el codigo de taller son las 3 primeras letras
+    with db() as conn:
+        if req.cerrada:
+            conn.execute(
+                """insert into subordenes_cerradas (subos, taller, cerrada_por)
+                     values (%s, %s, %s)
+                   on conflict (subos) do nothing""",
+                (subos, taller, u["usuario"]),
+            )
+        else:
+            conn.execute("delete from subordenes_cerradas where subos = %s", (subos,))
+    return {"ok": True, "subos": subos, "cerrada": req.cerrada}
 
 
 @app.post("/api/stock")
