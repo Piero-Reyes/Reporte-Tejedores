@@ -13,13 +13,15 @@ Regla de oro: el `taller` SIEMPRE sale del token, nunca del cliente.
 import hashlib
 import hmac
 import os
+import time
+from collections import defaultdict, deque
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from pydantic import BaseModel
@@ -33,13 +35,82 @@ DB_URL = os.getenv("SUPABASE_DB_URL")
 if not DB_URL:
     raise RuntimeError("Falta SUPABASE_DB_URL en .env")
 
+# --- Endurecimiento (todo configurable por .env; los defaults son sensatos) ---
+# El front se sirve desde el MISMO origen que la API, asi que en produccion no se
+# necesita CORS: por defecto no se permite ningun origen cruzado. Si algun dia el
+# portal vive en otro dominio, se listan en CORS_ORIGINS (separados por coma).
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+# Vida de la sesion: un token deja de valer pasadas estas horas (turno de trabajo).
+SESSION_TTL_HORAS = int(os.getenv("SESSION_TTL_HORAS", "12") or "12")
+# Tope de tamano del cuerpo de un request (un reporte real pesa pocos KB).
+MAX_BODY_BYTES = int(os.getenv("MAX_BODY_BYTES", "262144") or "262144")
+# Rate limits por IP: login estricto (anti fuerza bruta), global holgado.
+RATE_LOGIN = int(os.getenv("RATE_LOGIN", "12") or "12")        # intentos/min de login
+RATE_GLOBAL = int(os.getenv("RATE_GLOBAL", "240") or "240")    # requests/min por IP
+
+# CSP permisiva con estilos/scripts inline (los HTML son de un solo archivo), pero
+# cierra todo lo externo y el embebido en iframes (anti-clickjacking + anti-XSS).
+CSP = ("default-src 'self'; style-src 'self' 'unsafe-inline'; "
+       "script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
+       "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+
 app = FastAPI(title="Portal Tejedores")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: restringir al origen del portal al desplegar
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=CORS_ORIGINS,          # [] = solo mismo origen (sin CORS cruzado)
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Token"],
 )
+
+
+# ---------------------------------------------------------------- abuso / DDoS
+
+# Rate limiter en memoria (ventana deslizante). Suficiente para un solo proceso;
+# si algun dia se corre con varios workers, mover a Redis o al reverse proxy.
+_HITS: dict[str, deque] = defaultdict(deque)
+
+
+def _client_ip(request: Request) -> str:
+    """IP del cliente. Detras de un reverse proxy, la real viaja en X-Forwarded-For."""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "?"
+
+
+def _rate_ok(clave: str, limite: int, ventana_s: int = 60) -> bool:
+    """True si `clave` no ha superado `limite` golpes en los ultimos `ventana_s`."""
+    ahora = time.monotonic()
+    dq = _HITS[clave]
+    while dq and dq[0] <= ahora - ventana_s:
+        dq.popleft()
+    if len(dq) >= limite:
+        return False
+    dq.append(ahora)
+    return True
+
+
+@app.middleware("http")
+async def guardia(request: Request, call_next):
+    # 1) Cuerpo desmesurado -> corta antes de leerlo.
+    cl = request.headers.get("content-length")
+    if cl and cl.isdigit() and int(cl) > MAX_BODY_BYTES:
+        return JSONResponse({"detail": "El cuerpo del request es demasiado grande."}, 413)
+
+    # 2) Rate limit global por IP (colchon; el login tiene su propio tope, mas estricto).
+    ip = _client_ip(request)
+    if not _rate_ok(f"ip:{ip}", RATE_GLOBAL):
+        return JSONResponse({"detail": "Demasiadas solicitudes. Espera un momento."}, 429)
+
+    resp = await call_next(request)
+
+    # 3) Cabeceras de seguridad en toda respuesta.
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    resp.headers["Content-Security-Policy"] = CSP
+    resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return resp
 
 # Abrir una conexion a Supabase cuesta ~1s (TLS a us-west-2); la query solo ~0.16s.
 # El pool mantiene las conexiones vivas: ese es el grueso de la mejora de velocidad.
@@ -60,6 +131,16 @@ POOL = ConnectionPool(
 @app.on_event("startup")
 def _abrir_pool():
     POOL.open(wait=True, timeout=30)
+    # Tabla propia del portal para caducar sesiones SIN tocar el esquema que
+    # comparte con OC_Hilo (usuarios). El token sigue viviendo en usuarios.token;
+    # aqui solo se guarda cuando se emitio, para poder expirarlo.
+    with POOL.connection() as conn:
+        conn.execute(
+            """create table if not exists portal_sesiones (
+                   token  text primary key,
+                   creado timestamptz not null default now()
+               )"""
+        )
 
 
 @app.on_event("shutdown")
@@ -108,12 +189,19 @@ def usuario_desde_token(token: str | None) -> dict:
         raise HTTPException(401, "Falta el token de sesion.")
     with db() as conn:
         u = conn.execute(
-            """select usuario, tejedor, es_tejedor, es_admin, activo
-                 from usuarios where token = %s""",
-            (token,),
+            """select us.usuario, us.tejedor, us.es_tejedor, us.es_admin, us.activo,
+                      (ps.creado is not null
+                       and ps.creado > now() - make_interval(hours => %s)) as vigente
+                 from usuarios us
+                 left join portal_sesiones ps on ps.token = us.token
+                where us.token = %s""",
+            (SESSION_TTL_HORAS, token),
         ).fetchone()
     if not u or not u["activo"]:
         raise HTTPException(401, "Sesion invalida o usuario inactivo.")
+    if not u["vigente"]:
+        # Token sin registro de sesion o vencido: obliga a volver a entrar.
+        raise HTTPException(401, "Tu sesion expiro. Vuelve a ingresar.")
     return u
 
 
@@ -144,6 +232,9 @@ class FilaReporte(BaseModel):
     rollos: float | None = None
     peso: float | None = None
     finalizado: bool = False
+    # Fecha estimada en que el tejedor liquidara la suborden (planificacion de
+    # Mecsa). Llega como ISO 'YYYY-MM-DD' desde el <input type=date>; None = vacia.
+    fecha_liquidacion: str | None = None
 
 
 class ReporteReq(BaseModel):
@@ -175,7 +266,12 @@ def health():
 
 
 @app.post("/api/login")
-def login(req: LoginReq):
+def login(req: LoginReq, request: Request):
+    # Tope estricto por IP: corta la fuerza bruta y el flood de PBKDF2 (100k iter
+    # por intento son CPU: sin este freno, /api/login es un amplificador de DoS).
+    if not _rate_ok(f"login:{_client_ip(request)}", RATE_LOGIN):
+        raise HTTPException(429, "Demasiados intentos. Espera un minuto e intenta de nuevo.")
+
     with db() as conn:
         u = conn.execute(
             """select id, usuario, clave_hash, es_tejedor, es_admin, tejedor, activo
@@ -192,6 +288,13 @@ def login(req: LoginReq):
 
         token = _token_nuevo()
         conn.execute("update usuarios set token = %s where id = %s", (token, u["id"]))
+        # Sella el inicio de la sesion (para poder expirarla) y barre las vencidas
+        # para que la tabla no crezca sin fin.
+        conn.execute("insert into portal_sesiones (token) values (%s)", (token,))
+        conn.execute(
+            "delete from portal_sesiones where creado < now() - make_interval(hours => %s)",
+            (SESSION_TTL_HORAS,),
+        )
 
     return {
         "token": token,
@@ -199,6 +302,18 @@ def login(req: LoginReq):
         "tejedor": u["tejedor"],
         "rol": "tejedor" if es_tejedor else "admin",
     }
+
+
+@app.post("/api/logout")
+def logout(x_token: str | None = Header(default=None)):
+    """Revoca la sesion del lado del servidor (antes el logout era solo del cliente
+    y el token seguia valido en la DB para siempre). Idempotente: solo puede
+    revocar el token que uno mismo presenta."""
+    if x_token:
+        with db() as conn:
+            conn.execute("update usuarios set token = null where token = %s", (x_token,))
+            conn.execute("delete from portal_sesiones where token = %s", (x_token,))
+    return {"ok": True}
 
 
 # Las subordenes de un taller viven en DOS sitios, y hay que unir ambos:
@@ -334,7 +449,7 @@ ult as (
 -- vez = max(vez) le borraria el estado. El AppScript arrastra el ultimo conocido.
 ultimo as (
     select distinct on (l.subos)
-           l.subos, l.rollos, l.peso, l.finalizado, l.vez
+           l.subos, l.rollos, l.peso, l.finalizado, l.fecha_liquidacion, l.vez
       from logs_ingresos l
      where l.taller = (select taller from yo)
      order by l.subos, l.vez desc
@@ -350,6 +465,7 @@ select yo.usuario,
        r.rollos                 as rollos,
        r.peso                   as peso,
        coalesce(r.finalizado, 0) as finalizado,
+       r.fecha_liquidacion      as fecha_liquidacion,
        -- Desglose del `despachado`: las guias de remision que lo componen.
        -- Va como agregado JSON para no gastar un segundo round-trip (~170ms).
        --
@@ -380,7 +496,7 @@ select yo.usuario,
 
 CAMPOS_FILA = ("subos", "os", "tejido", "ancho", "fibra", "nombre", "proveedor",
                "programado", "despachado", "queda", "fecha_inicio",
-               "rollos", "peso", "finalizado", "guias")
+               "rollos", "peso", "finalizado", "fecha_liquidacion", "guias")
 
 
 def _fecha_iso(v: str | None) -> str | None:
@@ -400,6 +516,17 @@ def _fecha_iso(v: str | None) -> str | None:
             continue
     return s
 
+
+
+def _fecha_liq(v: str | None):
+    """El <input type=date> manda 'YYYY-MM-DD'. Devuelve un date o None; si llega
+    algo que no parsea, se guarda None (mejor vacio que una fecha inventada)."""
+    if not v:
+        return None
+    try:
+        return datetime.strptime(str(v)[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
 
 
 def _talleres_activos(conn) -> list[dict]:
@@ -447,6 +574,10 @@ def get_stock(x_token: str | None = Header(default=None), taller: str | None = N
         # Las fechas vienen como texto en 4 variantes de D/M/YYYY; el AppScript
         # las muestra en ISO. Se normaliza aca para que la tabla sea homogenea.
         fila["fecha_inicio"] = _fecha_iso(f["fecha_inicio"])
+        # fecha_liquidacion viene como date de Postgres; el <input type=date> del
+        # front la quiere en ISO 'YYYY-MM-DD'.
+        fl = f["fecha_liquidacion"]
+        fila["fecha_liquidacion"] = fl.isoformat() if fl else None
         for g in fila["guias"]:
             g["fecha"] = _fecha_iso(g.get("fecha"))
         data.append(fila)
@@ -571,6 +702,9 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
 
     if not req.filas:
         raise HTTPException(400, "El reporte no trae filas.")
+    # Ningun taller real tiene tantas subordenes: un payload asi es abuso.
+    if len(req.filas) > 2000:
+        raise HTTPException(400, "El reporte trae demasiadas filas.")
 
     fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
@@ -610,10 +744,11 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
                 conn.execute(
                     """insert into logs_ingresos
                          (subos, fecha_ingreso, rollos, peso, peso_con_mas_rep,
-                          peso_pendiente, finalizado, vez, taller)
-                       values (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                          peso_pendiente, finalizado, fecha_liquidacion, vez, taller)
+                       values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (f.subos, fecha, f.rollos, f.peso, peso_con_mas_rep,
-                     None, 1 if f.finalizado else 0, vez, taller),
+                     None, 1 if f.finalizado else 0, _fecha_liq(f.fecha_liquidacion),
+                     vez, taller),
                 )
 
         # Aviso al equipo de Mecsa. Fuera de la transaccion: el reporte ya esta
