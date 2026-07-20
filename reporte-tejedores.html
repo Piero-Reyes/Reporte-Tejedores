@@ -207,6 +207,51 @@
   }
   .solo-lectura .estado-check{ pointer-events:none; opacity:.85; }
 
+  /* Estado derivado (no editable): en cola / en proceso / terminado.
+     Se calcula solo, a partir de lo reportado y de la casilla "terminada". */
+  .estado-badge{
+    display:inline-block; white-space:nowrap;
+    padding:3px 10px; border-radius:999px;
+    font-size:12px; font-weight:700; letter-spacing:.01em;
+  }
+  .estado-badge.cola{ background:var(--steel-soft); color:var(--steel); }
+  .estado-badge.proceso{ background:var(--amber-soft); color:#B45309; }
+  .estado-badge.terminado{ background:var(--green-soft); color:#15803D; }
+  .estado-badge.cerrada{ background:#E7EAF0; color:#475569; }
+
+  /* Boton del admin para cerrar una suborden terminada (y reabrir en el desglose). */
+  .cerrar-btn, .reabrir-btn{
+    appearance:none; cursor:pointer; font-family:inherit; font-weight:600;
+    font-size:12.5px; padding:5px 12px; border-radius:8px;
+    border:1.5px solid var(--red); background:var(--red); color:#fff;
+    transition:filter .15s ease;
+  }
+  .cerrar-btn:hover, .reabrir-btn:hover{ filter:brightness(.93); }
+  .cerrar-btn:disabled, .reabrir-btn:disabled{ opacity:.6; cursor:default; }
+  .reabrir-btn{ background:#fff; color:var(--red); }
+
+  /* Desglose por OS (dentro de Avance por OS) */
+  .desglose{ padding:6px 4px 10px; }
+  .sub-tabla{ width:100%; border-collapse:collapse; margin-top:6px; background:#fff;
+    border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .sub-tabla th{ background:var(--steel-soft); color:var(--muted); font-size:11px;
+    text-transform:uppercase; letter-spacing:.03em; padding:8px 10px; text-align:left; }
+  .sub-tabla td{ padding:8px 10px; border-top:1px solid var(--line); font-size:13.5px; }
+  .sub-tabla .n{ text-align:right; font-variant-numeric:tabular-nums; }
+  .caret-os{ margin-right:2px; }
+
+  .fecha-liq-input{
+    width:128px; padding:8px 8px;
+    border-radius:9px; border:1.5px solid var(--line);
+    background:#FBFCFE; font-family:inherit; font-size:13.5px; color:var(--ink);
+  }
+  .fecha-liq-input:focus{ outline:none; border-color:var(--red);
+    box-shadow:0 0 0 3px rgba(225,29,46,.14); }
+  .solo-lectura .fecha-liq-input{
+    border-color:transparent; background:transparent; padding-left:0;
+    color:var(--ink); pointer-events:none;
+  }
+
   /* ---------------------------------------------------------- */
   /* PESTANAS                                                    */
   /* ---------------------------------------------------------- */
@@ -359,7 +404,7 @@
     text-align:center;
     font-size:12px; text-transform:uppercase; letter-spacing:.04em;
     color:#fff; font-weight:600;
-    padding:14px 8px;
+    padding:14px 6px;
     background:var(--steel);
     position:sticky; top:0;
     white-space:nowrap;
@@ -368,7 +413,7 @@
   /* Todo el texto de la tabla en negro: el color se reserva para el cromo
      (cabecera, boton, barra), no para los datos. */
   tbody td{
-    padding:11px 8px; font-size:14px;
+    padding:11px 6px; font-size:14px;
     border-bottom:1px solid #EEF2F7;
     vertical-align:middle; white-space:nowrap;
     color:var(--ink);
@@ -378,7 +423,7 @@
   tbody tr:hover{ background:var(--steel-soft); }
 
   td.os-cell{ font-weight:700; color:var(--ink); }
-  td.prov-cell{ max-width:150px; overflow:hidden; text-overflow:ellipsis; }
+  td.prov-cell{ max-width:120px; overflow:hidden; text-overflow:ellipsis; }
   /* la barra de progreso es un bloque: se centra sola dentro de la celda */
   .progress-track{ margin:0 auto; }
 
@@ -445,6 +490,9 @@
      necesita hasta 7-8 caracteres ("1244.25", "1970.30"). */
   .rollos-input{ width:74px; }
   .peso-input{ width:100px; }
+  /* La pista "ult. 34" va mas chica para caber sin ensanchar la columna, y en
+     gris claro para que se lea como referencia y no como un valor cargado. */
+  .stock-input::placeholder{ font-size:11.5px; color:var(--muted-soft); opacity:1; }
   .stock-input:focus{
     outline:none; border-color:var(--red);
     box-shadow:0 0 0 3px rgba(225,29,46,.14);
@@ -502,9 +550,87 @@
 
   .empty-state{ padding:60px 20px; text-align:center; color:var(--muted-soft); }
 
-  @media (max-width: 720px){
-    .page-wrap{ padding:20px 14px 60px; }
-    .hello-pill{ font-size:19px; padding:15px 22px; }
+  /* ============================================================ */
+  /* MOVIL                                                        */
+  /* ============================================================ */
+  @media (max-width: 760px){
+    .page-wrap{ padding:18px 12px 60px; }
+    .topbar{ padding:14px 16px; }
+    .hello-pill{ font-size:18px; }
+
+    /* barra de admin: en columna */
+    .admin-bar{ gap:12px; padding:12px 14px; }
+    .admin-sel{ width:100%; }
+    .admin-sel select{ flex:1; min-width:0; }
+    .admin-link{ margin-left:0; }
+
+    /* pestanas: que ocupen el ancho */
+    .tabs{ gap:0; }
+    .tab{ flex:1; text-align:center; padding:11px 8px; font-size:13.5px; }
+
+    /* KPIs: en una sola columna, apilados */
+    .kpi-row{ gap:10px; }
+    .kpi{ min-width:0; flex:1 1 100%; }
+
+    /* grafico: sin tope, ocupa el ancho del telefono */
+    #grafico-wrap{ max-width:none; }
+
+    /* ---- TABLA PRINCIPAL -> TARJETAS ---- */
+    /* Cada fila se vuelve una tarjeta apilada; cada celda muestra su etiqueta
+       (data-label) a la izquierda y el valor a la derecha. Sin scroll lateral.
+       Combinadores hijo (>) para NO tocar la sub-tabla de guias, que va anidada
+       mas adentro y debe seguir siendo una tabla normal. */
+    .table-scroll{ overflow-x:visible; }
+    .table-scroll > table,
+    .table-scroll > table > thead,
+    .table-scroll > table > tbody,
+    .table-scroll > table > tbody > tr,
+    .table-scroll > table > tbody > tr > td{ display:block; width:auto; }
+
+    .table-scroll > table > thead{
+      position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);
+    }
+    .table-scroll > table > tbody > tr{
+      border:1px solid var(--line); border-radius:12px;
+      margin:0 0 12px; padding:6px 4px; background:var(--card);
+    }
+    .table-scroll > table > tbody > tr:hover{ background:var(--card); }
+    .table-scroll > table > tbody > tr > td{
+      display:flex; align-items:center; justify-content:space-between; gap:14px;
+      padding:9px 14px; border-bottom:1px solid #F1F5F9;
+      text-align:right; white-space:normal;
+    }
+    .table-scroll > table > tbody > tr > td:last-child{ border-bottom:none; }
+    .table-scroll > table > tbody > tr > td::before{
+      content:attr(data-label); flex:none;
+      color:var(--muted); font-size:12px; font-weight:600; text-align:left;
+    }
+    /* OS como encabezado de la tarjeta: fondo tenue, sin etiqueta */
+    .table-scroll > table > tbody > tr > td.os-cell{
+      background:#FAFBFD; border-radius:8px; margin:2px 4px 6px; padding:10px 14px;
+      font-size:15px; justify-content:flex-start; border-bottom:none;
+    }
+    .table-scroll > table > tbody > tr > td.os-cell::before{ content:none; }
+    /* el proveedor deja de recortarse: en tarjeta cabe entero */
+    .table-scroll > table > tbody > tr > td.prov-cell{
+      max-width:none; overflow:visible; text-overflow:clip;
+    }
+    .rollos-input, .peso-input{ width:96px; }
+
+    /* el triangulo del desglose: su propia linea arriba, no como columna */
+    .table-scroll > table > tbody > tr > td.caret-cell{
+      justify-content:flex-start; padding:8px 14px 0; border-bottom:none;
+    }
+    .table-scroll > table > tbody > tr > td.caret-cell::before{ content:none; }
+    .caret{ font-size:13px; }
+    /* la fila de detalle (guias) ocupa el ancho completo; la sub-tabla scrollea */
+    .table-scroll > table > tbody > tr.detalle-row > td{
+      display:block; padding:0; border-bottom:none;
+    }
+    .table-scroll > table > tbody > tr.detalle-row > td::before{ content:none; }
+    .detalle{ padding:12px; align-items:stretch; overflow-x:auto; }
+    /* fila TOTAL de avance: se distingue con borde de color */
+    .table-scroll > table > tbody > tr.fila-total{ border:2px solid var(--dato); }
   }
 </style>
 </head>
@@ -571,7 +697,7 @@
     <div class="vista" id="vista-stock" role="tabpanel" aria-labelledby="tab-stock">
 
     <h2 class="section-title">Completa el reporte de Stock</h2>
-    <p class="section-sub">Actualiza los rollos y el peso en stock de cada suborden. Los campos traen tu último reporte: revísalos y envía todo junto.</p>
+    <p class="section-sub">Escribe el conteo de hoy: los campos arrancan vacíos a propósito. En gris ves lo que reportaste la última vez, solo como referencia. Se envía todo junto.</p>
 
     <div class="stats-row" id="stats-row"></div>
 
@@ -585,14 +711,15 @@
               <th>Tejido</th>
               <th>Ancho</th>
               <th>Proveedor Hilado</th>
-              <th>Program. (kg)</th>
-              <th>Despach. (kg)</th>
-              <th>Fecha de Inicio</th>
-              <th>Queda (kg)</th>
+              <th>Prog. (kg)</th>
+              <th>Desp. (kg)</th>
+              <th>Inicio</th>
               <th>Rollos</th>
               <th>Peso stock</th>
               <th>Progreso</th>
               <th>Estado</th>
+              <th>Fecha liquidación</th>
+              <th>Terminada</th>
             </tr>
           </thead>
           <tbody id="table-body">
@@ -700,9 +827,40 @@ function formatKg(n) {
   return Number(n).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/* El backend manda las fechas en ISO 'YYYY-MM-DD'; en pantalla se muestran
+   DD/MM/YYYY (formato local). Si algo no viene en ISO, se deja tal cual. */
+function fechaDMY(iso) {
+  if (!iso) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+/* Escapa texto antes de meterlo en innerHTML. Los nombres de OS/proveedor/guia
+   vienen de la DB (una EPTe la crea el tejedor); sin esto, un valor tipo
+   "<img onerror=...>" se ejecutaria en el navegador del admin (XSS almacenado). */
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g,
+    c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function progressPct(row) {
   if (!row.programado) return 0;
   return Math.min(100, Math.round((row.despachado / row.programado) * 100));
+}
+
+/* Estado DERIVADO de una suborden (no lo elige nadie):
+   - terminado : la casilla "terminada" esta marcada.
+   - en proceso: ya se trabajo algo (hay kg reportados o despachados) y queda stock.
+   - en cola   : nada reportado ni despachado (el hilo aun no esta en maquina).
+   `e` trae la edicion viva (ESTADO[subos]); `row`, lo persistido + el despachado.
+   Se recalcula en vivo al teclear kg o marcar la casilla. */
+function estadoInfo(row, e) {
+  if (e.finalizado) return { cls: "terminado", txt: "Terminado" };
+  const kg =
+    (e.rollos != null && e.rollos > 0) || (e.peso != null && e.peso > 0) ||   // lo que teclea hoy
+    (row.rollos != null && row.rollos > 0) || (row.peso != null && row.peso > 0) || // ultimo reporte
+    (Number(row.despachado) || 0) > 0;                                        // entregas reales
+  return kg ? { cls: "proceso", txt: "En proceso" } : { cls: "cola", txt: "En cola" };
 }
 
 /* ------------------------------------------------------------------ */
@@ -746,6 +904,9 @@ loginForm.addEventListener("submit", async function (e) {
 });
 
 document.getElementById("logout-btn").addEventListener("click", function () {
+  // Revoca el token en el servidor (no solo lo olvida el navegador). Best-effort:
+  // aunque falle la red, la sesion local se limpia igual.
+  if (TOKEN) { api("api/logout", { method: "POST" }).catch(() => {}); }
   sessionStorage.removeItem("tejedor_token");
   sessionStorage.removeItem("admin_token");
   TOKEN = null;
@@ -773,7 +934,7 @@ async function entrar() {
 
 async function cargarStock() {
   const tbody = document.getElementById("table-body");
-  tbody.innerHTML = `<tr><td colspan="13" style="padding:28px;text-align:center;color:var(--muted-soft)">Cargando…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="14" style="padding:28px;text-align:center;color:var(--muted-soft)">Cargando…</td></tr>`;
 
   let r;
   try {
@@ -804,13 +965,13 @@ function prepararAdmin(talleres) {
 
   const sel = document.getElementById("admin-taller");
   sel.innerHTML = `<option value="">Elige un taller…</option>` +
-    talleres.map(t => `<option value="${t.codigo}">${t.nombre || t.codigo} (${t.pendientes})</option>`).join("");
+    talleres.map(t => `<option value="${esc(t.codigo)}">${esc(t.nombre || t.codigo)} (${t.pendientes})</option>`).join("");
 
   sel.onchange = () => { if (sel.value) cargarTaller(sel.value); };
 
   // estado inicial: aun sin taller elegido
   document.getElementById("table-body").innerHTML =
-    `<tr><td colspan="13" style="padding:32px;text-align:center;color:var(--muted-soft)">Elige un taller arriba para ver su avance.</td></tr>`;
+    `<tr><td colspan="14" style="padding:32px;text-align:center;color:var(--muted-soft)">Elige un taller arriba para ver su avance.</td></tr>`;
   document.getElementById("table-foot").style.display = "none";
   document.getElementById("kpi-row").innerHTML = "";
   document.getElementById("avance-body").innerHTML = "";
@@ -836,9 +997,12 @@ function pintarPortal(r) {
   FILAS.forEach(f => {
     // Tejedor: campos en blanco (conteo del dia, como el AppScript).
     // Admin: muestra lo ULTIMO que reporto ese taller — es lo que va a monitorear.
+    // rollos/peso arrancan en blanco para el tejedor (conteo del dia); en cambio
+    // finalizado y fecha_liquidacion arrastran el ultimo valor: son el estado que
+    // Mecsa monitorea, no un conteo diario.
     ESTADO[f.subos] = esAdmin
-      ? { rollos: f.rollos, peso: f.peso, finalizado: !!f.finalizado }
-      : { rollos: null, peso: null, finalizado: !!f.finalizado };
+      ? { rollos: f.rollos, peso: f.peso, finalizado: !!f.finalizado, fecha_liquidacion: f.fecha_liquidacion ?? null }
+      : { rollos: null, peso: null, finalizado: !!f.finalizado, fecha_liquidacion: f.fecha_liquidacion ?? null };
   });
 
   if (esAdmin) {
@@ -860,15 +1024,19 @@ function aplicarModoLectura(activo) {
   dash.classList.toggle("solo-lectura", activo);
   document.getElementById("table-foot").style.display = activo ? "none" : "flex";
   document.querySelectorAll("#table-body .stock-input").forEach(i => { i.readOnly = activo; });
+  // El date-picker ignora readOnly en varios navegadores: se deshabilita del todo.
+  document.querySelectorAll("#table-body .fecha-liq-input").forEach(i => { i.disabled = activo; });
   document.querySelectorAll("#table-body .estado-check").forEach(c => { c.disabled = activo; });
 }
 
 function renderStats() {
-  const total = FILAS.length;
-  const completos = FILAS.filter(r => progressPct(r) >= 100).length;
+  // Solo subordenes activas: las cerradas por el admin ya no cuentan como carga.
+  const activas = FILAS.filter(f => !f.cerrada);
+  const total = activas.length;
+  const completos = activas.filter(r => progressPct(r) >= 100).length;
   // Cuenta viva de lo que falta por llenar en ESTE reporte (baja al ir tecleando).
   // No mira el reporte anterior: la tabla arranca en blanco a proposito.
-  const porLlenar = FILAS.filter(r => {
+  const porLlenar = activas.filter(r => {
     const e = ESTADO[r.subos];
     return e.rollos == null && e.peso == null;
   }).length;
@@ -892,13 +1060,14 @@ function agruparPorOS() {
   FILAS.forEach(f => {
     let g = porOS.get(f.os);
     if (!g) {
-      g = { os: f.os, subs: 0, programado: 0, despachado: 0, queda: 0 };
+      g = { os: f.os, subs: 0, programado: 0, despachado: 0, queda: 0, items: [] };
       porOS.set(f.os, g);
     }
     g.subs++;
     g.programado += Number(f.programado) || 0;
     g.despachado += Number(f.despachado) || 0;
     g.queda      += Number(f.queda) || 0;
+    g.items.push(f);   // para el desglose expandible
   });
   // Por lo que falta, no por numero de OS: en RSA dos OS concentran 7,528 de
   // los 9,594 kg pendientes. Ordenadas por numero quedarian bajo 19 filas al 97%.
@@ -941,21 +1110,99 @@ function renderAvance() {
     <div class="kpi"><div class="n">${tPct}<small>%</small></div><div class="l">Avance total</div></div>
   `;
 
-  tbody.innerHTML = grupos.map(g => `
-      <tr>
-        <td class="os-cell">${g.os} <span class="os-subs">${g.subs} sub</span></td>
-        <td class="num-cell">${formatKg(g.programado)}</td>
-        <td class="num-cell ${g.despachado ? "" : "cero-cell"}">${formatKg(g.despachado)}</td>
-        <td class="num-cell falta-cell">${formatKg(g.queda)}</td>
-        <td class="medidor-cell">${medidor(g.programado, g.despachado)}</td>
-      </tr>`).join("") + `
-      <tr class="fila-total">
-        <td class="os-cell">TOTAL</td>
-        <td class="num-cell">${formatKg(tProg)}</td>
-        <td class="num-cell">${formatKg(tDesp)}</td>
-        <td class="num-cell">${formatKg(tQueda)}</td>
-        <td class="medidor-cell">${medidor(tProg, tDesp)}</td>
+  const esAdmin = ROL === "admin";
+  tbody.innerHTML = grupos.map(g => {
+    const nCerr = g.items.filter(f => f.cerrada).length;
+    return `
+      <tr class="avance-os" data-os="${esc(g.os)}">
+        <td class="os-cell" data-label="OS">
+          <button class="caret caret-os" title="Ver el desglose por suborden">▶</button>
+          ${esc(g.os)} <span class="os-subs">${g.subs} sub${nCerr ? ` · ${nCerr} cerrada${nCerr > 1 ? "s" : ""}` : ""}</span>
+        </td>
+        <td class="num-cell" data-label="Programado (kg)">${formatKg(g.programado)}</td>
+        <td class="num-cell ${g.despachado ? "" : "cero-cell"}" data-label="Entregado (kg)">${formatKg(g.despachado)}</td>
+        <td class="num-cell falta-cell" data-label="Te falta (kg)">${formatKg(g.queda)}</td>
+        <td class="medidor-cell" data-label="Avance">${medidor(g.programado, g.despachado)}</td>
+      </tr>
+      <tr class="detalle-row" data-detalle-os="${esc(g.os)}" hidden>
+        <td colspan="5">${renderDesglose(g, esAdmin)}</td>
       </tr>`;
+  }).join("") + `
+      <tr class="fila-total">
+        <td class="os-cell" data-label="OS">TOTAL</td>
+        <td class="num-cell" data-label="Programado (kg)">${formatKg(tProg)}</td>
+        <td class="num-cell" data-label="Entregado (kg)">${formatKg(tDesp)}</td>
+        <td class="num-cell" data-label="Te falta (kg)">${formatKg(tQueda)}</td>
+        <td class="medidor-cell" data-label="Avance">${medidor(tProg, tDesp)}</td>
+      </tr>`;
+
+  attachAvanceHandlers();
+}
+
+/* Estado de una suborden en la vista de avance (usa lo persistido, no ediciones vivas). */
+function estadoSub(f) {
+  if (f.cerrada) return { cls: "cerrada", txt: "Cerrada" };
+  return estadoInfo(f, { finalizado: f.finalizado, rollos: f.rollos, peso: f.peso });
+}
+
+/* Desglose de una OS: una fila por suborden, con su estado. El admin puede reabrir
+   las cerradas (vuelven al Reporte de Stock del tejedor). */
+function renderDesglose(g, esAdmin) {
+  const filas = g.items.map(f => {
+    const est = estadoSub(f);
+    const accion = (esAdmin && f.cerrada)
+      ? `<button class="reabrir-btn" data-reabrir="${esc(f.subos)}">Reabrir</button>` : "";
+    return `<tr>
+      <td>${esc(f.tejido || "—")}</td>
+      <td class="n">${esc(f.ancho || "")}</td>
+      <td class="n">${formatKg(f.programado)}</td>
+      <td class="n">${formatKg(f.despachado)}</td>
+      <td class="n">${formatKg(f.queda)}</td>
+      <td><span class="estado-badge ${est.cls}">${est.txt}</span></td>
+      ${esAdmin ? `<td>${accion}</td>` : ""}
+    </tr>`;
+  }).join("");
+  return `<div class="desglose">
+    <div class="detalle-tit">Subórdenes de ${esc(g.os)}</div>
+    <table class="sub-tabla">
+      <thead><tr>
+        <th>Tejido</th><th class="n">Ancho</th><th class="n">Programado</th>
+        <th class="n">Entregado</th><th class="n">Falta</th><th>Estado</th>
+        ${esAdmin ? "<th>Acción</th>" : ""}
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+  </div>`;
+}
+
+/* Handlers del avance: expandir el desglose y reabrir subordenes (admin). */
+function attachAvanceHandlers() {
+  document.querySelectorAll("#avance-body tr.avance-os").forEach(tr => {
+    const os = tr.dataset.os;
+    const caret = tr.querySelector(".caret-os");
+    if (caret) caret.addEventListener("click", () => {
+      const det = document.querySelector(`#avance-body tr[data-detalle-os="${os}"]`);
+      if (!det) return;
+      det.hidden = !det.hidden;
+      caret.classList.toggle("abierto", !det.hidden);
+    });
+  });
+  document.querySelectorAll("#avance-body .reabrir-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const subos = btn.dataset.reabrir;
+      if (!confirm("Vas a reabrir esta suborden. Volverá a aparecerle al tejedor en Reporte de Stock. ¿Confirmas?")) return;
+      btn.disabled = true; btn.textContent = "Reabriendo…";
+      try {
+        await api("api/admin/cerrar", { method: "POST", body: JSON.stringify({ subos, cerrada: false }) });
+        showToast("Suborden reabierta · vuelve al Reporte de Stock");
+        const taller = document.getElementById("admin-taller").value;
+        if (taller) await cargarTaller(taller);
+      } catch (err) {
+        showToast("Error: " + err.message);
+        btn.disabled = false; btn.textContent = "Reabrir";
+      }
+    });
+  });
 }
 
 /* ---- grafico de entregas por mes (area de una serie, SVG) ---- */
@@ -1093,7 +1340,9 @@ function renderTable() {
   const emptyState = document.getElementById("empty-state");
   const foot = document.getElementById("table-foot");
 
-  if (FILAS.length === 0) {
+  // Las subordenes CERRADAS por el admin salen de esta vista: viven en "Avance por OS".
+  const activas = FILAS.filter(f => !f.cerrada);
+  if (activas.length === 0) {
     tbody.innerHTML = "";
     emptyState.style.display = "block";
     foot.style.display = "none";
@@ -1101,43 +1350,60 @@ function renderTable() {
   }
   emptyState.style.display = "none";
   foot.style.display = "flex";
+  const esAdmin = ROL === "admin";
 
-  tbody.innerHTML = FILAS.map(row => {
+  tbody.innerHTML = activas.map(row => {
     const pct = progressPct(row);
     const e = ESTADO[row.subos];
+    const est = estadoInfo(row, e);
     const nG = (row.guias || []).length;
+    // Pista del ultimo reporte: los campos siguen VACIOS (el conteo es del dia),
+    // pero se ve en gris lo que se reporto la vez pasada. Sin esto, una suborden
+    // ya reportada parece que nunca se toco.
+    const phRollos = row.rollos != null ? `últ. ${Number(row.rollos)}` : "—";
+    const phPeso   = row.peso   != null ? `últ. ${formatKg(row.peso)}` : "—";
     return `
-      <tr data-subos="${row.subos}">
+      <tr data-subos="${esc(row.subos)}">
         <td class="caret-cell">
-          <button class="caret" ${nG ? "" : "disabled"}
-                  title="${nG ? `Ver ${nG} guía(s) de remisión` : "Sin guías registradas"}">▶</button>
+          <button class="caret"
+                  title="${nG ? `Ver ${nG} guía(s) de remisión` : "Ver entregas (aún sin guías)"}">▶</button>
         </td>
-        <td class="os-cell">${row.os}</td>
-        <td>${row.tejido || ""}</td>
-        <td class="num-cell">${row.ancho || ""}</td>
-        <td class="prov-cell" title="${row.proveedor || ""}">${row.proveedor || "—"}</td>
-        <td class="num-cell">${formatKg(row.programado)}</td>
-        <td class="num-cell">${formatKg(row.despachado)}</td>
-        <td class="num-cell">${row.fecha_inicio || "—"}</td>
-        <td class="num-cell">${formatKg(row.queda)}</td>
-        <td>
+        <td class="os-cell" data-label="OS">${esc(row.os)}</td>
+        <td data-label="Tejido">${esc(row.tejido || "")}</td>
+        <td class="num-cell" data-label="Ancho">${esc(row.ancho || "")}</td>
+        <td class="prov-cell" data-label="Proveedor" title="${esc(row.proveedor || "")}">${esc(row.proveedor || "—")}</td>
+        <td class="num-cell" data-label="Programado (kg)">${formatKg(row.programado)}</td>
+        <td class="num-cell" data-label="Despachado (kg)">${formatKg(row.despachado)}</td>
+        <td class="num-cell" data-label="Fecha inicio">${esc(fechaDMY(row.fecha_inicio))}</td>
+        <td data-label="Rollos">
           <input type="number" min="0" step="1" class="stock-input rollos-input"
-                 value="${e.rollos ?? ""}" placeholder="—">
+                 value="${e.rollos ?? ""}" placeholder="${esc(phRollos)}">
         </td>
-        <td>
+        <td data-label="Peso stock">
           <input type="number" min="0" step="0.01" class="stock-input peso-input"
-                 value="${e.peso ?? ""}" placeholder="—">
+                 value="${e.peso ?? ""}" placeholder="${esc(phPeso)}">
         </td>
-        <td>
+        <td data-label="Progreso">
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
           <span class="progress-pct">${pct}%</span>
         </td>
-        <td>
-          <input type="checkbox" class="estado-check" ${e.finalizado ? "checked" : ""}>
+        <td data-label="Estado">
+          <span class="estado-badge ${est.cls}">${est.txt}</span>
+        </td>
+        <td data-label="Fecha liquidación">
+          <input type="date" class="stock-input fecha-liq-input"
+                 value="${e.fecha_liquidacion ?? ""}">
+        </td>
+        <td data-label="Terminada">
+          ${esAdmin
+            ? (e.finalizado
+                ? `<button class="cerrar-btn" data-cerrar="${esc(row.subos)}" title="El tejedor la marcó terminada. Ciérrala para archivarla en Avance por OS.">Cerrar</button>`
+                : `<input type="checkbox" class="estado-check" disabled ${e.finalizado ? "checked" : ""}>`)
+            : `<input type="checkbox" class="estado-check" ${e.finalizado ? "checked" : ""}>`}
         </td>
       </tr>
-      <tr class="detalle-row" data-detalle="${row.subos}" hidden>
-        <td colspan="13">${renderGuias(row)}</td>
+      <tr class="detalle-row" data-detalle="${esc(row.subos)}" hidden>
+        <td colspan="14">${renderGuias(row)}</td>
       </tr>
     `;
   }).join("");
@@ -1152,7 +1418,7 @@ function renderGuias(row) {
   if (!gs.length) {
     return `<div class="detalle">
       <div class="detalle-tit">Guías de remisión</div>
-      <div class="sin-guias">Sin guías registradas para esta suborden.</div>
+      <div class="sin-guias">Aún no hay guías de remisión: todavía no se ha despachado nada de esta suborden a MECSA.</div>
     </div>`;
   }
 
@@ -1161,9 +1427,9 @@ function renderGuias(row) {
     const pg = g.peso_guia || 0, pm = g.peso_mecsa || 0, dif = pg - pm;
     tRollos += g.rollos || 0; tGuia += pg; tMecsa += pm;
     return `<tr>
-      <td><strong>${g.guia}</strong></td>
-      <td>${g.parte || "—"}</td>
-      <td>${g.fecha || "—"}</td>
+      <td><strong>${esc(g.guia)}</strong></td>
+      <td>${esc(g.parte || "—")}</td>
+      <td>${esc(g.fecha || "—")}</td>
       <td class="n">${g.rollos ?? "—"}</td>
       <td class="n">${formatKg(pg)}</td>
       <td class="n">${formatKg(pm)}</td>
@@ -1204,23 +1470,54 @@ function attachRowHandlers() {
     const rollosInput = tr.querySelector(".rollos-input");
     const pesoInput   = tr.querySelector(".peso-input");
     const estadoCheck = tr.querySelector(".estado-check");
+    const fechaLiqInput = tr.querySelector(".fecha-liq-input");
+    const badge       = tr.querySelector(".estado-badge");
     const caret       = tr.querySelector(".caret");
+    const rowData     = FILAS.find(x => x.subos === subos) || {};
 
     function marcar() {
       ESTADO[subos] = {
         rollos: rollosInput.value === "" ? null : Number(rollosInput.value),
         peso:   pesoInput.value === "" ? null : Number(pesoInput.value),
-        finalizado: estadoCheck.checked,
+        finalizado: estadoCheck ? estadoCheck.checked : !!(ESTADO[subos] && ESTADO[subos].finalizado),
+        fecha_liquidacion: fechaLiqInput.value || null,
       };
+      // El Estado es derivado: se recalcula en vivo al teclear kg o marcar la casilla.
+      if (badge) {
+        const info = estadoInfo(rowData, ESTADO[subos]);
+        badge.textContent = info.txt;
+        badge.className = "estado-badge " + info.cls;
+      }
       tr.classList.add("row-dirty");
       renderStats();   // el contador "Por completar" baja al ir llenando
     }
 
-    rollosInput.addEventListener("input", marcar);
-    pesoInput.addEventListener("input", marcar);
-    estadoCheck.addEventListener("change", marcar);
+    if (rollosInput) rollosInput.addEventListener("input", marcar);
+    if (pesoInput) pesoInput.addEventListener("input", marcar);
+    if (estadoCheck) estadoCheck.addEventListener("change", marcar);
+    if (fechaLiqInput) fechaLiqInput.addEventListener("input", marcar);
 
-    if (caret && !caret.disabled) {
+    // Admin: cerrar una suborden terminada (la archiva en Avance por OS).
+    const cerrarBtn = tr.querySelector(".cerrar-btn");
+    if (cerrarBtn) {
+      cerrarBtn.addEventListener("click", async () => {
+        if (!confirm("Vas a cerrar esta suborden. Dejará de aparecerle al tejedor y pasará a Avance por OS. ¿Confirmas?")) return;
+        cerrarBtn.disabled = true;
+        cerrarBtn.textContent = "Cerrando…";
+        try {
+          await api("api/admin/cerrar", { method: "POST", body: JSON.stringify({ subos, cerrada: true }) });
+          showToast("Suborden cerrada · pasó a Avance por OS");
+          const taller = document.getElementById("admin-taller").value;
+          if (taller) await cargarTaller(taller);
+        } catch (err) {
+          showToast("Error: " + err.message);
+          cerrarBtn.disabled = false;
+          cerrarBtn.textContent = "Cerrar";
+        }
+      });
+    }
+
+    if (caret) {
       caret.addEventListener("click", () => {
         const det = document.querySelector(`#table-body tr[data-detalle="${subos}"]`);
         if (!det) return;
@@ -1239,14 +1536,17 @@ function attachRowHandlers() {
 document.getElementById("enviar-btn").addEventListener("click", async function () {
   const btn = this;
 
-  const filas = FILAS.map(f => ({
+  // Las cerradas por el admin ya no se reportan: no aparecen en la vista del tejedor.
+  const filas = FILAS.filter(f => !f.cerrada).map(f => ({
     subos: f.subos,
     rollos: ESTADO[f.subos].rollos,
     peso: ESTADO[f.subos].peso,
     finalizado: ESTADO[f.subos].finalizado,
+    fecha_liquidacion: ESTADO[f.subos].fecha_liquidacion,
   }));
 
-  const conDatos = filas.filter(f => f.rollos != null || f.peso != null || f.finalizado);
+  const conDatos = filas.filter(f =>
+    f.rollos != null || f.peso != null || f.finalizado || f.fecha_liquidacion);
   if (conDatos.length === 0) {
     showToast("No hay nada que reportar todavía.");
     return;
