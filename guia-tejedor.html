@@ -1,0 +1,161 @@
+<meta charset="utf-8">
+<title>Guía rápida · Portal de Tejedores</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 14mm; }
+  :root{
+    --ink:#0F172A; --muted:#5b6472; --line:#e2e8f0;
+    --red:#E11D2E; --navy:#1B3B8F; --steel:#3D5A80;
+    --amber:#B45309; --green:#15803D; --gris:#f4f6fb;
+  }
+  *{ box-sizing:border-box; }
+  body{ font-family:"Segoe UI",Arial,sans-serif; color:var(--ink); font-size:11.5pt; line-height:1.5; margin:0; }
+  h1{ font-size:25pt; margin:0; }
+  h2{ font-size:15pt; margin:0 0 3pt; color:var(--navy); }
+  p{ margin:0 0 7pt; }
+  .muted{ color:var(--muted); }
+
+  /* Portada compacta */
+  .cover{ text-align:center; padding:14mm 0 8mm; border-bottom:3px solid var(--red); margin-bottom:9mm; }
+  .cover .marca{ letter-spacing:3px; font-size:11pt; font-weight:700; color:var(--red); text-transform:uppercase; }
+  .cover .sub{ font-size:13pt; color:var(--muted); margin-top:5pt; }
+
+  /* Secciones tipo paso */
+  .paso{ display:flex; gap:11pt; align-items:flex-start; margin:0 0 6mm; page-break-inside:avoid; }
+  .paso .num{
+    flex:none; width:26pt; height:26pt; border-radius:50%;
+    background:var(--red); color:#fff; font-weight:800; font-size:13pt;
+    display:flex; align-items:center; justify-content:center; margin-top:1pt;
+  }
+  .paso .cont{ flex:1; }
+  ol.mini{ margin:4pt 0 0; padding-left:18pt; }
+  ol.mini li{ margin-bottom:3pt; }
+
+  figure{ margin:6pt 0 0; page-break-inside:avoid; }
+  figure img{ width:100%; height:auto; display:block; border:1px solid var(--line); border-radius:8px; }
+  figure.chica img{ max-width:74mm; }
+  figcaption{ font-size:9pt; color:var(--muted); margin-top:4pt; }
+
+  .caja{ background:var(--gris); border-left:4px solid var(--navy); border-radius:6px;
+    padding:9pt 12pt; margin:5mm 0; page-break-inside:avoid; }
+  .caja b{ color:var(--navy); }
+  .pill{ display:inline-block; background:var(--red); color:#fff; border-radius:20px; padding:0 8pt; font-size:9.5pt; font-weight:700; }
+  .tag{ display:inline-block; border-radius:20px; padding:0 8pt; font-size:9.5pt; font-weight:700; }
+  .tag.cola{ background:#eef1f5; color:var(--steel); }
+  .tag.proc{ background:#fef6e7; color:var(--amber); }
+  .tag.term{ background:#e9faef; color:var(--green); }
+
+  .faq{ page-break-inside:avoid; margin-bottom:4mm; }
+  .faq .q{ font-weight:700; }
+  .faq .a{ color:var(--muted); margin-bottom:4pt; }
+  .seccion{ page-break-before:always; }
+  hr{ border:none; border-top:1px solid var(--line); margin:6mm 0; }
+</style>
+
+<!-- PORTADA -->
+<div class="cover">
+  <div class="marca">MECSA · Tejeduría</div>
+  <h1>Portal de Tejedores</h1>
+  <div class="sub">Guía rápida para reportar tu avance</div>
+</div>
+
+<p class="muted" style="text-align:center;max-width:150mm;margin:0 auto 8mm;">
+  En 3 pasos aprendes lo esencial: <b>entrar</b>, <b>reportar tu stock</b> y <b>ver tu avance</b>.
+  No necesitas instalar nada; funciona en la computadora o en el celular.
+</p>
+
+<!-- 1 -->
+<div class="paso">
+  <div class="num">1</div>
+  <div class="cont">
+    <h2>Entrar al portal</h2>
+    <ol class="mini">
+      <li>Abre el <b>enlace</b> que te compartió MECSA.</li>
+      <li>Escribe tu <b>usuario</b> y tu <b>contraseña</b>.</li>
+      <li>Toca <span class="pill">Ingresar</span>.</li>
+    </ol>
+    <figure class="chica">
+      <img src="capturas/t-login.png" alt="Pantalla de inicio de sesión">
+    </figure>
+  </div>
+</div>
+
+<!-- 2 -->
+<div class="paso">
+  <div class="num">2</div>
+  <div class="cont">
+    <h2>Reportar tu stock</h2>
+    <p class="muted" style="margin-top:2pt;">Es lo que harás cada día: contar lo que tienes y enviarlo.</p>
+    <ol class="mini">
+      <li>En <b>Rollos</b>, escribe cuántos rollos tienes hoy.</li>
+      <li>En <b>Peso stock</b>, escribe los kilos que tienes hoy.</li>
+      <li>Si ya <b>terminaste</b> una suborden, marca la casilla <b>Terminada</b>.</li>
+      <li>Toca <span class="pill">Enviar reporte</span>. Se envía todo junto, en un solo paso.</li>
+    </ol>
+    <figure>
+      <img src="capturas/t-stock.png" alt="Tabla de reporte de stock con datos llenados">
+      <figcaption>Solo escribes en <b>Rollos</b>, <b>Peso stock</b> y <b>Terminada</b>. Lo demás es información que te muestra MECSA.</figcaption>
+    </figure>
+  </div>
+</div>
+
+<div class="caja">
+  <p><b>Bueno saber:</b></p>
+  <p>• Los campos <b>arrancan vacíos</b> a propósito: escribe el conteo de <b>hoy</b>. En gris (ej. <i>«últ. 34»</i>) ves lo que reportaste la vez pasada, solo como referencia.</p>
+  <p>• La columna <b>Estado</b> se pone sola:
+     <span class="tag cola">En cola</span> aún no reportas nada ·
+     <span class="tag proc">En proceso</span> ya reportaste algo ·
+     <span class="tag term">Terminado</span> marcaste la casilla.</p>
+  <p style="margin-bottom:0;">• En <b>Fecha de liquidación</b> pon cuándo crees que terminarás esa suborden. Puedes cambiarla si ves que no llegas.</p>
+</div>
+
+<p class="muted" style="font-size:10.5pt;">
+  <b>Tip:</b> el triángulo <b>▶</b> al inicio de cada fila abre el detalle de las guías con las que ya entregaste.
+</p>
+
+<!-- 3 -->
+<div class="paso seccion">
+  <div class="num">3</div>
+  <div class="cont">
+    <h2>Ver tu avance</h2>
+    <p class="muted" style="margin-top:2pt;">Toca la pestaña <b>«Avance por OS»</b> para ver cómo vas.</p>
+    <ol class="mini">
+      <li>Ves cuánto llevas <b>entregado</b> y cuánto te <b>falta</b> por cada OS.</li>
+      <li>Toca el <b>▶</b> de una OS para ver sus subórdenes en detalle.</li>
+      <li>El gráfico muestra lo que has entregado <b>mes a mes</b>.</li>
+    </ol>
+    <figure>
+      <img src="capturas/t-avance.png" alt="Vista de avance por OS con el desglose">
+    </figure>
+  </div>
+</div>
+
+<hr>
+
+<!-- FAQ -->
+<h2 style="margin-bottom:4mm;">Preguntas rápidas</h2>
+
+<div class="faq">
+  <div class="q">¿Por qué los campos salen vacíos cada vez?</div>
+  <div class="a">Para que reportes lo de <b>hoy</b>, no lo de ayer. Lo anterior queda en gris, solo de referencia.</div>
+</div>
+<div class="faq">
+  <div class="q">Me equivoqué y ya envié.</div>
+  <div class="a">No pasa nada: vuelve a escribir el valor correcto y toca <b>Enviar reporte</b> otra vez. Vale el último envío.</div>
+</div>
+<div class="faq">
+  <div class="q">Marqué «Terminada» pero la suborden sigue apareciendo.</div>
+  <div class="a">Es normal. Se queda hasta que MECSA la confirme; ahí deja de aparecerte y pasa a <b>«Avance por OS»</b>.</div>
+</div>
+<div class="faq">
+  <div class="q">¿Tengo que llenar todas las subórdenes?</div>
+  <div class="a">No. Llena solo las que quieras actualizar y envía.</div>
+</div>
+<div class="faq">
+  <div class="q">¿Funciona en el celular?</div>
+  <div class="a">Sí. La tabla se acomoda sola en pantallas pequeñas.</div>
+</div>
+
+<hr>
+<p class="muted" style="text-align:center;font-size:9.5pt;">
+  ¿Dudas? Escríbele al equipo de Sistemas de MECSA. · Portal de Tejedores — Guía rápida
+</p>
