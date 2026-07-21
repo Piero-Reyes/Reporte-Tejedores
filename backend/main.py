@@ -348,10 +348,13 @@ externas as (
            g.kilogramos              as programado,
            g.consumo                 as despachado,
            g.restante                as queda,
-           g.fecha                   as fecha_inicio
+           g.fecha                   as fecha_inicio,
+           g.estado_actual           as estado_actual
       from guia_os g, yo
      where left(upper(g.orden), 3) = yo.taller
-       and upper(trim(g.estado)) = 'PENDIENTE'
+       -- Solo las PENDIENTES: se muestran todas menos las que OC_Hilo marco 'Cerrado'
+       -- en guia_os.estado_actual (esa columna es ahora la fuente del estado).
+       and coalesce(g.estado_actual, '') <> 'Cerrado'
 ),
 movs as (
     select suborden, sum(peso_mecsa) as mecsa from mov_segregado group by suborden
@@ -369,7 +372,10 @@ eptes as (
            -- NO es fecha_registro (cuando se creo la EPTe) ni fecha_entrega (estimada).
            -- Verificado contra las OS que estan en ambas tablas: guia_os.fecha ==
            -- fecha_confirmacion en 5/6; registro y entrega calzan en 0/6.
-           p.fecha_confirmacion      as fecha_inicio
+           p.fecha_confirmacion      as fecha_inicio,
+           -- Las EPTe aun no estan en guia_os, asi que no tienen estado_actual:
+           -- el front lo deriva (En cola / En proceso / Terminado) para estas.
+           null::text                as estado_actual
       from preordenes p
       join preorden_lineas l on l.preorden_id = p.id
       cross join yo
@@ -471,7 +477,7 @@ select yo.usuario,
        (select meses from entregas) as entregas_mes,
        (select vez from ult)    as ultima_vez,
        s.subos, s.os, s.tejido, s.ancho, s.fibra, s.nombre, s.proveedor,
-       s.programado, s.despachado, s.queda, s.fecha_inicio,
+       s.programado, s.despachado, s.queda, s.fecha_inicio, s.estado_actual,
        r.rollos                 as rollos,
        r.peso                   as peso,
        coalesce(r.finalizado, 0) as finalizado,
@@ -507,7 +513,7 @@ select yo.usuario,
 """
 
 CAMPOS_FILA = ("subos", "os", "tejido", "ancho", "fibra", "nombre", "proveedor",
-               "programado", "despachado", "queda", "fecha_inicio",
+               "programado", "despachado", "queda", "fecha_inicio", "estado_actual",
                "rollos", "peso", "finalizado", "fecha_liquidacion", "cerrada", "guias")
 
 

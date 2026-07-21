@@ -856,6 +856,20 @@ function estadoInfo(row, e) {
   return kg ? { cls: "proceso", txt: "En proceso" } : { cls: "cola", txt: "En cola" };
 }
 
+/* El estado OFICIAL viene de guia_os.estado_actual (lo fija OC_Hilo). Las EPTe aun
+   no estan en guia_os (estado_actual = null): para esas se deriva con estadoInfo. */
+const ESTADO_MAP = {
+  "En cola":    { cls: "cola",      txt: "En cola" },
+  "En proceso": { cls: "proceso",   txt: "En proceso" },
+  "Terminado":  { cls: "terminado", txt: "Terminado" },
+  "Cerrado":    { cls: "cerrada",   txt: "Cerrado" },
+};
+function estadoDe(row, e) {
+  const ea = row.estado_actual;
+  if (ea && ESTADO_MAP[ea]) return ESTADO_MAP[ea];
+  return estadoInfo(row, e);
+}
+
 /* ------------------------------------------------------------------ */
 /* login                                                               */
 /* ------------------------------------------------------------------ */
@@ -1131,10 +1145,10 @@ function renderAvance() {
   attachAvanceHandlers();
 }
 
-/* Estado de una suborden en la vista de avance (usa lo persistido, no ediciones vivas). */
+/* Estado de una suborden en la vista de avance: usa estado_actual (OC_Hilo);
+   para EPTe sin estado_actual, se deriva de lo persistido. */
 function estadoSub(f) {
-  if (f.cerrada) return { cls: "cerrada", txt: "Cerrado" };
-  return estadoInfo(f, { finalizado: f.finalizado, rollos: f.rollos, peso: f.peso });
+  return estadoDe(f, { finalizado: f.finalizado, rollos: f.rollos, peso: f.peso });
 }
 
 /* Desglose de una OS: una fila por suborden, con su estado. El admin puede reabrir
@@ -1326,7 +1340,7 @@ function renderTable() {
   tbody.innerHTML = activas.map(row => {
     const pct = progressPct(row);
     const e = ESTADO[row.subos];
-    const est = estadoInfo(row, e);
+    const est = estadoDe(row, e);
     const nG = (row.guias || []).length;
     // Pista del ultimo reporte: los campos siguen VACIOS (el conteo es del dia),
     // pero se ve en gris lo que se reporto la vez pasada. Sin esto, una suborden
@@ -1443,7 +1457,7 @@ function attachRowHandlers() {
       };
       // El Estado es derivado: se recalcula en vivo al teclear kg o marcar la casilla.
       if (badge) {
-        const info = estadoInfo(rowData, ESTADO[subos]);
+        const info = estadoDe(rowData, ESTADO[subos]);
         badge.textContent = info.txt;
         badge.className = "estado-badge " + info.cls;
       }
