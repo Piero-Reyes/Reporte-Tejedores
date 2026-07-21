@@ -219,17 +219,6 @@
   .estado-badge.terminado{ background:var(--green-soft); color:#15803D; }
   .estado-badge.cerrada{ background:#E7EAF0; color:#475569; }
 
-  /* Boton del admin para cerrar una suborden terminada (y reabrir en el desglose). */
-  .cerrar-btn, .reabrir-btn{
-    appearance:none; cursor:pointer; font-family:inherit; font-weight:600;
-    font-size:12.5px; padding:5px 12px; border-radius:8px;
-    border:1.5px solid var(--red); background:var(--red); color:#fff;
-    transition:filter .15s ease;
-  }
-  .cerrar-btn:hover, .reabrir-btn:hover{ filter:brightness(.93); }
-  .cerrar-btn:disabled, .reabrir-btn:disabled{ opacity:.6; cursor:default; }
-  .reabrir-btn{ background:#fff; color:var(--red); }
-
   /* Desglose por OS (dentro de Avance por OS) */
   .desglose{ padding:6px 4px 10px; }
   .sub-tabla{ width:100%; border-collapse:collapse; margin-top:6px; background:#fff;
@@ -395,7 +384,10 @@
     overflow:hidden;
     box-shadow:var(--shadow);
   }
-  .table-scroll{ overflow-x:auto; }
+  /* La tabla scrollea dentro de su tarjeta: asi el encabezado queda fijo arriba
+     (position:sticky en las th) al recorrer muchas filas, y el pie con "Enviar
+     reporte" queda siempre visible debajo. */
+  .table-scroll{ overflow:auto; max-height:calc(100vh - 200px); }
 
   table{ width:100%; border-collapse:collapse; min-width:0; table-layout:auto; }
 
@@ -406,7 +398,8 @@
     color:#fff; font-weight:600;
     padding:14px 6px;
     background:var(--steel);
-    position:sticky; top:0;
+    position:sticky; top:0; z-index:5;
+    box-shadow:0 2px 4px -2px rgba(15,23,42,.35);   /* separa el encabezado fijo de las filas */
     white-space:nowrap;
   }
 
@@ -580,7 +573,7 @@
        (data-label) a la izquierda y el valor a la derecha. Sin scroll lateral.
        Combinadores hijo (>) para NO tocar la sub-tabla de guias, que va anidada
        mas adentro y debe seguir siendo una tabla normal. */
-    .table-scroll{ overflow-x:visible; }
+    .table-scroll{ overflow-x:visible; overflow-y:visible; max-height:none; }
     .table-scroll > table,
     .table-scroll > table > thead,
     .table-scroll > table > tbody,
@@ -1110,7 +1103,6 @@ function renderAvance() {
     <div class="kpi"><div class="n">${tPct}<small>%</small></div><div class="l">Avance total</div></div>
   `;
 
-  const esAdmin = ROL === "admin";
   tbody.innerHTML = grupos.map(g => {
     const nCerr = g.items.filter(f => f.cerrada).length;
     return `
@@ -1125,7 +1117,7 @@ function renderAvance() {
         <td class="medidor-cell" data-label="Avance">${medidor(g.programado, g.despachado)}</td>
       </tr>
       <tr class="detalle-row" data-detalle-os="${esc(g.os)}" hidden>
-        <td colspan="5">${renderDesglose(g, esAdmin)}</td>
+        <td colspan="5">${renderDesglose(g)}</td>
       </tr>`;
   }).join("") + `
       <tr class="fila-total">
@@ -1147,19 +1139,16 @@ function estadoSub(f) {
 
 /* Desglose de una OS: una fila por suborden, con su estado. El admin puede reabrir
    las cerradas (vuelven al Reporte de Stock del tejedor). */
-function renderDesglose(g, esAdmin) {
+function renderDesglose(g) {
   const filas = g.items.map(f => {
     const est = estadoSub(f);
-    // El admin reabre una cerrada desde aqui mismo, junto al estado (sin columna aparte).
-    const reabrir = (esAdmin && f.cerrada)
-      ? ` <button class="reabrir-btn" data-reabrir="${esc(f.subos)}">Reabrir</button>` : "";
     return `<tr>
       <td>${esc(f.tejido || "—")}</td>
       <td>${esc(f.ancho || "")}</td>
       <td>${formatKg(f.programado)}</td>
       <td>${formatKg(f.despachado)}</td>
       <td>${formatKg(f.queda)}</td>
-      <td><span class="estado-badge ${est.cls}">${est.txt}</span>${reabrir}</td>
+      <td><span class="estado-badge ${est.cls}">${est.txt}</span></td>
     </tr>`;
   }).join("");
   return `<div class="desglose">
@@ -1174,7 +1163,7 @@ function renderDesglose(g, esAdmin) {
   </div>`;
 }
 
-/* Handlers del avance: expandir el desglose y reabrir subordenes (admin). */
+/* Handlers del avance: expandir/colapsar el desglose por OS. */
 function attachAvanceHandlers() {
   document.querySelectorAll("#avance-body tr.avance-os").forEach(tr => {
     const os = tr.dataset.os;
@@ -1184,22 +1173,6 @@ function attachAvanceHandlers() {
       if (!det) return;
       det.hidden = !det.hidden;
       caret.classList.toggle("abierto", !det.hidden);
-    });
-  });
-  document.querySelectorAll("#avance-body .reabrir-btn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const subos = btn.dataset.reabrir;
-      if (!confirm("Vas a reabrir esta suborden. Volverá a aparecerle al tejedor en Reporte de Stock. ¿Confirmas?")) return;
-      btn.disabled = true; btn.textContent = "Reabriendo…";
-      try {
-        await api("api/admin/cerrar", { method: "POST", body: JSON.stringify({ subos, cerrada: false }) });
-        showToast("Suborden reabierta · vuelve al Reporte de Stock");
-        const taller = document.getElementById("admin-taller").value;
-        if (taller) await cargarTaller(taller);
-      } catch (err) {
-        showToast("Error: " + err.message);
-        btn.disabled = false; btn.textContent = "Reabrir";
-      }
     });
   });
 }
@@ -1339,7 +1312,7 @@ function renderTable() {
   const emptyState = document.getElementById("empty-state");
   const foot = document.getElementById("table-foot");
 
-  // Las subordenes CERRADAS por el admin salen de esta vista: viven en "Avance por OS".
+  // Las subordenes CERRADAS (confirmadas desde OC_Hilo) salen de esta vista: viven en "Avance por OS".
   const activas = FILAS.filter(f => !f.cerrada);
   if (activas.length === 0) {
     tbody.innerHTML = "";
@@ -1349,7 +1322,6 @@ function renderTable() {
   }
   emptyState.style.display = "none";
   foot.style.display = "flex";
-  const esAdmin = ROL === "admin";
 
   tbody.innerHTML = activas.map(row => {
     const pct = progressPct(row);
@@ -1394,11 +1366,7 @@ function renderTable() {
                  value="${e.fecha_liquidacion ?? ""}">
         </td>
         <td data-label="Terminada">
-          ${esAdmin
-            ? (e.finalizado
-                ? `<button class="cerrar-btn" data-cerrar="${esc(row.subos)}" title="El tejedor la marcó terminada. Ciérrala para archivarla en Avance por OS.">Cerrar</button>`
-                : `<input type="checkbox" class="estado-check" disabled ${e.finalizado ? "checked" : ""}>`)
-            : `<input type="checkbox" class="estado-check" ${e.finalizado ? "checked" : ""}>`}
+          <input type="checkbox" class="estado-check" ${e.finalizado ? "checked" : ""}>
         </td>
       </tr>
       <tr class="detalle-row" data-detalle="${esc(row.subos)}" hidden>
@@ -1487,26 +1455,6 @@ function attachRowHandlers() {
     if (pesoInput) pesoInput.addEventListener("input", marcar);
     if (estadoCheck) estadoCheck.addEventListener("change", marcar);
     if (fechaLiqInput) fechaLiqInput.addEventListener("input", marcar);
-
-    // Admin: cerrar una suborden terminada (la archiva en Avance por OS).
-    const cerrarBtn = tr.querySelector(".cerrar-btn");
-    if (cerrarBtn) {
-      cerrarBtn.addEventListener("click", async () => {
-        if (!confirm("Vas a cerrar esta suborden. Dejará de aparecerle al tejedor y pasará a Avance por OS. ¿Confirmas?")) return;
-        cerrarBtn.disabled = true;
-        cerrarBtn.textContent = "Cerrando…";
-        try {
-          await api("api/admin/cerrar", { method: "POST", body: JSON.stringify({ subos, cerrada: true }) });
-          showToast("Suborden cerrada · pasó a Avance por OS");
-          const taller = document.getElementById("admin-taller").value;
-          if (taller) await cargarTaller(taller);
-        } catch (err) {
-          showToast("Error: " + err.message);
-          cerrarBtn.disabled = false;
-          cerrarBtn.textContent = "Cerrar";
-        }
-      });
-    }
 
     if (caret) {
       caret.addEventListener("click", () => {
