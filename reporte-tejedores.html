@@ -229,6 +229,48 @@
     text-align:center; font-variant-numeric:tabular-nums; }
   .caret-os{ margin-right:2px; }
 
+  /* ---------------------------------------------------------- */
+  /* CRONOGRAMA (Gantt) — solo admin                            */
+  /* ---------------------------------------------------------- */
+  .gantt-card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:14px 18px 18px; overflow-x:auto; }
+  #gantt{ min-width:640px; }
+  .gantt-head, .gantt-row{ display:grid; grid-template-columns:220px 1fr; align-items:center; }
+  .gantt-head{ height:26px; margin-bottom:6px; }
+  .gantt-axis{ position:relative; height:100%; border-bottom:1px solid var(--line); }
+  .gantt-month{ position:absolute; top:2px; transform:translateX(-50%); font-size:10.5px;
+    font-weight:700; color:var(--muted-soft); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap; }
+
+  .gantt-row{ height:38px; }
+  .gantt-row.sub{ height:32px; }
+  .gantt-label{ padding-right:12px; font-size:13.5px; color:var(--ink); white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:2px; }
+  .gantt-label.sub{ padding-left:24px; font-size:12.5px; color:var(--muted); justify-content:flex-start; }
+  .gantt-label .os-subs{ margin-left:auto; font-weight:700; color:var(--dato); }
+  .gantt-fecha{ margin-left:auto; font-size:11px; color:var(--muted-soft); font-variant-numeric:tabular-nums; }
+  .caret-gantt{ border:none; background:transparent; cursor:pointer; color:var(--muted);
+    font-size:11px; transition:transform .15s ease; padding:0 2px; }
+  .caret-gantt.abierto{ transform:rotate(90deg); }
+
+  .gantt-track{ position:relative; height:100%; }
+  .gantt-gridline{ position:absolute; top:0; bottom:0; width:1px; background:#EEF2F7; }
+  .gantt-today{ position:absolute; top:0; bottom:0; width:2px; background:var(--red); opacity:.7; z-index:2; }
+  .gantt-bar{ position:absolute; top:50%; transform:translateY(-50%); height:16px; min-width:3px;
+    background:var(--dato-track); border-radius:5px; overflow:hidden; z-index:1; }
+  .gantt-row.sub .gantt-bar{ height:12px; }
+  .gantt-fill{ position:absolute; left:0; top:0; bottom:0; background:var(--dato); }  /* entregado (verificado) */
+  .gantt-fill.rep{ background:#A9C4E6; }   /* reportado por enviar (tono más claro) */
+  .gantt-legend{ display:flex; gap:18px; flex-wrap:wrap; font-size:11.5px; color:var(--muted);
+    margin:0 0 10px 220px; }
+  .gantt-legend .sw{ display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:4px; vertical-align:-1px; }
+  .gantt-legend .sw.ent{ background:var(--dato); }
+  .gantt-legend .sw.rep{ background:#A9C4E6; }
+  .gantt-legend .sw.hoy{ background:var(--red); border-radius:1px; width:3px; height:12px; }
+  .gantt-pct{ position:absolute; right:5px; top:50%; transform:translateY(-50%); font-size:10px;
+    font-weight:700; color:var(--ink); z-index:2; }
+  .gantt-subwrap{ border-left:2px solid var(--line); margin:2px 0 6px; }
+  .gantt-nota{ font-size:12px; color:var(--muted-soft); margin:14px 2px 0; }
+
   .fecha-liq-input{
     width:128px; padding:8px 8px;
     border-radius:9px; border:1.5px solid var(--line);
@@ -684,6 +726,7 @@
     <div class="tabs" role="tablist">
       <button class="tab" id="tab-stock"  role="tab" aria-selected="true"  aria-controls="vista-stock">Reporte de Stock</button>
       <button class="tab" id="tab-avance" role="tab" aria-selected="false" aria-controls="vista-avance">Avance por OS</button>
+      <button class="tab" id="tab-gantt"  role="tab" aria-selected="false" aria-controls="vista-gantt" hidden>Cronograma</button>
     </div>
 
     <!-- ======================= VISTA 1: REPORTE DE STOCK ======================= -->
@@ -777,6 +820,16 @@
 
     </div><!-- /vista-avance -->
 
+    <!-- ======================= VISTA 3: CRONOGRAMA (solo admin) ======================= -->
+    <div class="vista" id="vista-gantt" role="tabpanel" aria-labelledby="tab-gantt" hidden>
+      <h2 class="section-title">Cronograma de liquidación</h2>
+      <p class="section-sub">Fechas de liquidación que puso el taller, por OS. La barra va del inicio a la fecha de liquidación; el relleno oscuro es lo entregado a MECSA y el claro lo tejido que el taller reporta y aún no envía. Haz clic en una OS para ver sus subórdenes.</p>
+      <div class="gantt-card">
+        <div id="gantt"></div>
+        <div class="empty-state" id="gantt-vacio" style="display:none;">Aún no hay fechas de liquidación para graficar.</div>
+      </div>
+    </div><!-- /vista-gantt -->
+
   </div>
 </div>
 
@@ -826,6 +879,16 @@ function fechaDMY(iso) {
   if (!iso) return "—";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+/* Parsea 'YYYY-MM-DD' o 'DD/MM/YYYY' a Date local (sin líos de zona horaria). */
+function parseFecha(s) {
+  if (!s) return null;
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+  return null;
 }
 
 /* Escapa texto antes de meterlo en innerHTML. Los nombres de OS/proveedor/guia
@@ -923,6 +986,7 @@ document.getElementById("logout-btn").addEventListener("click", function () {
   // Deja la UI lista por si el proximo login es de otro rol.
   document.getElementById("admin-bar").hidden = true;
   document.getElementById("hello-pill").hidden = false;
+  document.getElementById("tab-gantt").hidden = true;
   dashboard.classList.remove("solo-lectura");
   dashboard.style.display = "none";
   loginScreen.style.display = "flex";
@@ -932,6 +996,12 @@ document.getElementById("logout-btn").addEventListener("click", function () {
 async function entrar() {
   loginScreen.style.display = "none";
   dashboard.style.display = "block";
+  // Arranca siempre en "Reporte de Stock" (por si el rol anterior dejó otra activa).
+  TABS.forEach(t => {
+    const activa = t.tab === "tab-stock";
+    document.getElementById(t.tab).setAttribute("aria-selected", String(activa));
+    document.getElementById(t.vista).hidden = !activa;
+  });
   await cargarStock();
 }
 
@@ -1020,6 +1090,9 @@ function pintarPortal(r) {
     document.getElementById("tejedor-name").textContent = r.nombreTaller || r.usuario;
     document.getElementById("vez-num").textContent = "#" + r.proximaVez;
   }
+
+  // El cronograma (Gantt) es exclusivo del admin.
+  document.getElementById("tab-gantt").hidden = !esAdmin;
 
   renderTable();
   aplicarModoLectura(esAdmin);
@@ -1301,9 +1374,130 @@ function renderGrafico() {
 }
 
 /* pestanas */
+/* ------------------------------------------------------------------ */
+/* vista 3: cronograma (Gantt) — solo admin                            */
+/* ------------------------------------------------------------------ */
+
+function pctAvance(prog, desp) {
+  return prog ? Math.min(100, Math.round((Number(desp) || 0) / prog * 100)) : 0;
+}
+/* % total de producción: lo entregado + lo que el tejedor reporta en stock (por enviar). */
+function pctTot(prog, desp, stock) {
+  return prog ? Math.min(100, Math.round(((Number(desp) || 0) + (Number(stock) || 0)) / prog * 100)) : 0;
+}
+
+function renderGantt() {
+  const cont = document.getElementById("gantt");
+  const vacio = document.getElementById("gantt-vacio");
+
+  // Agrupa por OS y calcula inicio (min fecha_inicio) y fin (max fecha_liquidacion).
+  const porOS = new Map();
+  FILAS.forEach(f => {
+    let g = porOS.get(f.os);
+    if (!g) { g = { os: f.os, items: [], prog: 0, desp: 0, stock: 0 }; porOS.set(f.os, g); }
+    g.items.push(f);
+    g.prog  += Number(f.programado) || 0;
+    g.desp  += Number(f.despachado) || 0;
+    g.stock += Number(f.peso) || 0;        // stock reportado por el tejedor (por enviar)
+  });
+
+  const grupos = [];
+  let sinFecha = 0;
+  porOS.forEach(g => {
+    const conFin = g.items
+      .map(f => ({ f, ini: parseFecha(f.fecha_inicio), fin: parseFecha(f.fecha_liquidacion) }))
+      .filter(x => x.fin);
+    if (!conFin.length) { sinFecha++; return; }
+    const inis = conFin.map(x => (x.ini || x.fin).getTime());
+    grupos.push({
+      os: g.os, items: g.items,
+      start: new Date(Math.min(...inis)),
+      end: new Date(Math.max(...conFin.map(x => x.fin.getTime()))),
+      pctD: pctAvance(g.prog, g.desp),           // entregado y verificado (tono oscuro)
+      pctT: pctTot(g.prog, g.desp, g.stock),     // entregado + reportado (tope de la barra)
+    });
+  });
+
+  if (!grupos.length) { cont.innerHTML = ""; vacio.style.display = "block"; return; }
+  vacio.style.display = "none";
+  grupos.sort((a, b) => a.end - b.end);   // por fecha de liquidación, la más próxima arriba
+
+  // Rango del eje: del primer inicio al último fin, incluyendo hoy, ajustado a meses.
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  let minT = Math.min(hoy.getTime(), ...grupos.map(g => g.start.getTime()));
+  let maxT = Math.max(hoy.getTime(), ...grupos.map(g => g.end.getTime()));
+  const a0 = new Date(minT), a1 = new Date(maxT);
+  const rStart = new Date(a0.getFullYear(), a0.getMonth(), 1);
+  const rEnd = new Date(a1.getFullYear(), a1.getMonth() + 1, 1);
+  const span = rEnd - rStart || 1;
+  const pos = d => ((d - rStart) / span) * 100;
+
+  // Meses del eje + líneas de rejilla + línea de hoy (se reusan en cada fila).
+  const meses = [];
+  for (let m = new Date(rStart); m < rEnd; m = new Date(m.getFullYear(), m.getMonth() + 1, 1)) meses.push(new Date(m));
+  const axisHTML = meses.map(mo => `<div class="gantt-month" style="left:${pos(mo).toFixed(2)}%">${MESES_CORTO[mo.getMonth()]} ${String(mo.getFullYear()).slice(2)}</div>`).join("");
+  const tHoy = pos(hoy);
+  const gridHTML = meses.map(mo => `<span class="gantt-gridline" style="left:${pos(mo).toFixed(2)}%"></span>`).join("")
+    + (tHoy >= 0 && tHoy <= 100 ? `<span class="gantt-today" style="left:${tHoy.toFixed(2)}%" title="Hoy"></span>` : "");
+
+  // Barra de dos tonos: oscuro = entregado (pctD), claro encima = reportado por enviar (pctT - pctD).
+  const barra = (start, end, pctD, pctT, sub) => {
+    const left = Math.max(0, pos(start)), width = Math.max(sub ? 1.2 : 1.8, pos(end) - pos(start));
+    const claro = Math.max(0, pctT - pctD);
+    return `<div class="gantt-bar" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%">
+      <div class="gantt-fill" style="width:${pctD}%"></div>
+      <div class="gantt-fill rep" style="left:${pctD}%;width:${claro}%"></div>
+      <span class="gantt-pct">${pctT}%</span></div>`;
+  };
+
+  const rowsHTML = grupos.map(g => {
+    const subsHTML = g.items
+      .filter(f => parseFecha(f.fecha_liquidacion))
+      .sort((a, b) => parseFecha(a.fecha_liquidacion) - parseFecha(b.fecha_liquidacion))
+      .map(f => {
+        const ini = parseFecha(f.fecha_inicio) || parseFecha(f.fecha_liquidacion);
+        const fin = parseFecha(f.fecha_liquidacion);
+        return `<div class="gantt-row sub">
+          <div class="gantt-label sub">${esc(f.tejido || "—")} · ${esc(f.ancho || "")}
+            <span class="gantt-fecha">liq. ${fechaDMY(f.fecha_liquidacion)}</span></div>
+          <div class="gantt-track">${gridHTML}${barra(ini, fin, pctAvance(f.programado, f.despachado), pctTot(f.programado, f.despachado, f.peso), true)}</div>
+        </div>`;
+      }).join("");
+    return `<div class="gantt-row os" data-gos="${esc(g.os)}">
+        <div class="gantt-label"><button class="caret-gantt">▶</button><strong>${esc(g.os)}</strong>
+          <span class="os-subs">${g.pctT}%</span></div>
+        <div class="gantt-track">${gridHTML}${barra(g.start, g.end, g.pctD, g.pctT, false)}</div>
+      </div>
+      <div class="gantt-subwrap" data-gsub="${esc(g.os)}" hidden>${subsHTML}</div>`;
+  }).join("");
+
+  const leyenda = `<div class="gantt-legend">
+    <span><i class="sw ent"></i> Entregado a MECSA</span>
+    <span><i class="sw rep"></i> Reportado (por enviar)</span>
+    <span><i class="sw hoy"></i> Hoy</span></div>`;
+  cont.innerHTML = leyenda + `<div class="gantt-head"><div></div><div class="gantt-axis">${axisHTML}</div></div>${rowsHTML}`
+    + (sinFecha ? `<p class="gantt-nota">${sinFecha} OS sin fecha de liquidación no se muestran en el cronograma.</p>` : "");
+
+  attachGanttHandlers();
+}
+
+function attachGanttHandlers() {
+  document.querySelectorAll("#gantt .gantt-row.os").forEach(row => {
+    const os = row.dataset.gos;
+    const caret = row.querySelector(".caret-gantt");
+    row.addEventListener("click", () => {
+      const sub = document.querySelector(`#gantt .gantt-subwrap[data-gsub="${os}"]`);
+      if (!sub) return;
+      sub.hidden = !sub.hidden;
+      if (caret) caret.classList.toggle("abierto", !sub.hidden);
+    });
+  });
+}
+
 const TABS = [
   { tab: "tab-stock",  vista: "vista-stock" },
   { tab: "tab-avance", vista: "vista-avance" },
+  { tab: "tab-gantt",  vista: "vista-gantt" },   // solo visible para el admin
 ];
 TABS.forEach(({ tab, vista }) => {
   document.getElementById(tab).addEventListener("click", () => {
@@ -1321,6 +1515,7 @@ function renderTable() {
   renderStats();
   renderAvance();
   renderGrafico();
+  renderGantt();
 
   const tbody = document.getElementById("table-body");
   const emptyState = document.getElementById("empty-state");
