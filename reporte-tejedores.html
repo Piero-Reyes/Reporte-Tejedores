@@ -1109,7 +1109,7 @@ function renderAvance() {
       <tr class="avance-os" data-os="${esc(g.os)}">
         <td class="os-cell" data-label="OS">
           <button class="caret caret-os" title="Ver el desglose por suborden">▶</button>
-          ${esc(g.os)} <span class="os-subs">${g.subs} sub${nCerr ? ` · ${nCerr} cerrada${nCerr > 1 ? "s" : ""}` : ""}</span>
+          ${esc(g.os)} <span class="os-subs">${g.subs} sub${nCerr ? ` · ${nCerr} cerrado${nCerr > 1 ? "s" : ""}` : ""}</span>
         </td>
         <td class="num-cell" data-label="Programado (kg)">${formatKg(g.programado)}</td>
         <td class="num-cell ${g.despachado ? "" : "cero-cell"}" data-label="Entregado (kg)">${formatKg(g.despachado)}</td>
@@ -1133,7 +1133,7 @@ function renderAvance() {
 
 /* Estado de una suborden en la vista de avance (usa lo persistido, no ediciones vivas). */
 function estadoSub(f) {
-  if (f.cerrada) return { cls: "cerrada", txt: "Cerrada" };
+  if (f.cerrada) return { cls: "cerrada", txt: "Cerrado" };
   return estadoInfo(f, { finalizado: f.finalizado, rollos: f.rollos, peso: f.peso });
 }
 
