@@ -266,6 +266,16 @@
   .gantt-legend .sw.ent{ background:var(--dato); }
   .gantt-legend .sw.rep{ background:#A9C4E6; }
   .gantt-legend .sw.hoy{ background:var(--red); border-radius:1px; width:3px; height:12px; }
+  .gantt-bar{ cursor:default; }
+  .gantt-tip{ position:fixed; z-index:50; pointer-events:none; background:#fff;
+    border:1px solid var(--line); border-radius:8px; box-shadow:0 10px 28px -10px rgba(15,23,42,.30);
+    padding:9px 12px; font-size:12px; min-width:160px; }
+  .gantt-tip[hidden]{ display:none; }
+  .gantt-tip .t-tit{ font-weight:700; color:var(--ink); margin-bottom:5px; }
+  .gantt-tip .t-row{ display:flex; justify-content:space-between; gap:16px; color:var(--muted); line-height:1.7; }
+  .gantt-tip .t-row b{ color:var(--ink); font-variant-numeric:tabular-nums; }
+  .gantt-tip .t-liq b{ color:var(--red-dark); }
+  .gantt-tip small{ color:var(--muted-soft); }
   .gantt-pct{ position:absolute; right:5px; top:50%; transform:translateY(-50%); font-size:10px;
     font-weight:700; color:var(--ink); z-index:2; }
   .gantt-subwrap{ border-left:2px solid var(--line); margin:2px 0 6px; }
@@ -828,6 +838,7 @@
         <div id="gantt"></div>
         <div class="empty-state" id="gantt-vacio" style="display:none;">Aún no hay fechas de liquidación para graficar.</div>
       </div>
+      <div id="gantt-tip" class="gantt-tip" hidden></div>
     </div><!-- /vista-gantt -->
 
   </div>
@@ -889,6 +900,10 @@ function parseFecha(s) {
   m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s);
   if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
   return null;
+}
+/* Date -> 'DD/MM/YYYY' (para el tooltip del cronograma). */
+function fmtDate(d) {
+  return d ? String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear() : "—";
 }
 
 /* Escapa texto antes de meterlo en innerHTML. Los nombres de OS/proveedor/guia
@@ -1441,10 +1456,13 @@ function renderGantt() {
     + (tHoy >= 0 && tHoy <= 100 ? `<span class="gantt-today" style="left:${tHoy.toFixed(2)}%" title="Hoy"></span>` : "");
 
   // Barra de dos tonos: oscuro = entregado (pctD), claro encima = reportado por enviar (pctT - pctD).
-  const barra = (start, end, pctD, pctT, sub) => {
+  // meta = {label, ini, liq} para el tooltip al pasar el mouse.
+  const barra = (start, end, pctD, pctT, sub, meta) => {
     const left = Math.max(0, pos(start)), width = Math.max(sub ? 1.2 : 1.8, pos(end) - pos(start));
-    const claro = Math.max(0, pctT - pctD);
-    return `<div class="gantt-bar" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%">
+    const claro = Math.max(0, pctT - pctD), m = meta || {};
+    return `<div class="gantt-bar" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%"
+        data-label="${esc(m.label || "")}" data-ini="${esc(m.ini || "—")}" data-liq="${esc(m.liq || "—")}"
+        data-pctd="${pctD}" data-pctt="${pctT}">
       <div class="gantt-fill" style="width:${pctD}%"></div>
       <div class="gantt-fill rep" style="left:${pctD}%;width:${claro}%"></div>
       <span class="gantt-pct">${pctT}%</span></div>`;
@@ -1457,16 +1475,18 @@ function renderGantt() {
       .map(f => {
         const ini = parseFecha(f.fecha_inicio) || parseFecha(f.fecha_liquidacion);
         const fin = parseFecha(f.fecha_liquidacion);
+        const meta = { label: `${f.tejido || "—"} · ${f.ancho || ""}`, ini: fmtDate(ini), liq: fmtDate(fin) };
         return `<div class="gantt-row sub">
           <div class="gantt-label sub">${esc(f.tejido || "—")} · ${esc(f.ancho || "")}
             <span class="gantt-fecha">liq. ${fechaDMY(f.fecha_liquidacion)}</span></div>
-          <div class="gantt-track">${gridHTML}${barra(ini, fin, pctAvance(f.programado, f.despachado), pctTot(f.programado, f.despachado, f.peso), true)}</div>
+          <div class="gantt-track">${gridHTML}${barra(ini, fin, pctAvance(f.programado, f.despachado), pctTot(f.programado, f.despachado, f.peso), true, meta)}</div>
         </div>`;
       }).join("");
+    const metaOS = { label: `OS ${g.os}`, ini: fmtDate(g.start), liq: fmtDate(g.end) };
     return `<div class="gantt-row os" data-gos="${esc(g.os)}">
         <div class="gantt-label"><button class="caret-gantt">▶</button><strong>${esc(g.os)}</strong>
           <span class="os-subs">${g.pctT}%</span></div>
-        <div class="gantt-track">${gridHTML}${barra(g.start, g.end, g.pctD, g.pctT, false)}</div>
+        <div class="gantt-track">${gridHTML}${barra(g.start, g.end, g.pctD, g.pctT, false, metaOS)}</div>
       </div>
       <div class="gantt-subwrap" data-gsub="${esc(g.os)}" hidden>${subsHTML}</div>`;
   }).join("");
@@ -1493,6 +1513,31 @@ function attachGanttHandlers() {
     });
   });
 }
+
+/* Tooltip del cronograma: se engancha UNA sola vez a #gantt (el contenedor
+   persiste aunque se re-renderice adentro). Muestra la fecha de liquidación. */
+(function initGanttTip() {
+  const gantt = document.getElementById("gantt");
+  const tip = document.getElementById("gantt-tip");
+  if (!gantt || !tip) return;
+  gantt.addEventListener("mousemove", ev => {
+    const bar = ev.target.closest(".gantt-bar");
+    if (!bar) { tip.hidden = true; return; }
+    const d = bar.dataset;
+    tip.innerHTML =
+      `<div class="t-tit">${esc(d.label)}</div>
+       <div class="t-row t-liq"><span>Liquidación</span><b>${esc(d.liq)}</b></div>
+       <div class="t-row"><span>Inicio</span><b>${esc(d.ini)}</b></div>
+       <div class="t-row"><span>Avance</span><b>${d.pctt}% <small>(entregado ${d.pctd}%)</small></b></div>`;
+    tip.hidden = false;
+    const pad = 14, r = tip.getBoundingClientRect();
+    let x = ev.clientX + pad, y = ev.clientY + pad;
+    if (x + r.width > window.innerWidth) x = ev.clientX - r.width - pad;
+    if (y + r.height > window.innerHeight) y = ev.clientY - r.height - pad;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  });
+  gantt.addEventListener("mouseleave", () => { tip.hidden = true; });
+})();
 
 const TABS = [
   { tab: "tab-stock",  vista: "vista-stock" },
