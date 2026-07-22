@@ -571,9 +571,19 @@ def _fecha_liq(v: str | None):
         return None
 
 
+# Overrides de nombre comercial: se aplican al MOSTRAR, sin depender de lo que traiga
+# guia_os.proveedor_tejeduria (un re-import del Achorado puede reintroducir el nombre
+# viejo). Extensible: si mañana se renombra otro taller, se agrega aca.
+def renombrar_taller(nombre: str | None) -> str | None:
+    up = (nombre or "").strip().upper()
+    if "TRICOT FINE" in up or up.startswith("T&F TEXTILES"):
+        return "T&F Textiles S.A."
+    return nombre
+
+
 def _talleres_activos(conn) -> list[dict]:
     """Talleres con subordenes PENDIENTE en guia_os: el set que el admin puede ver."""
-    return [dict(r) for r in conn.execute(
+    talleres = [dict(r) for r in conn.execute(
         """select left(orden,3) as codigo,
                   max(proveedor_tejeduria) as nombre,
                   count(*) filter (where upper(trim(estado)) = 'PENDIENTE') as pendientes
@@ -582,6 +592,9 @@ def _talleres_activos(conn) -> list[dict]:
            having count(*) filter (where upper(trim(estado)) = 'PENDIENTE') > 0
             order by max(proveedor_tejeduria)"""
     ).fetchall()]
+    for t in talleres:
+        t["nombre"] = renombrar_taller(t["nombre"])
+    return talleres
 
 
 @app.get("/api/stock")
@@ -629,7 +642,7 @@ def get_stock(x_token: str | None = Header(default=None), taller: str | None = N
         "taller": cab["taller"],
         "usuario": cab["usuario"],
         # Solo para el saludo: el nombre comercial, no el usuario de login.
-        "nombreTaller": cab["nombre_taller"],
+        "nombreTaller": renombrar_taller(cab["nombre_taller"]),
         # Serie mensual de entregas, para el grafico de "Avance por OS".
         "entregasMes": cab["entregas_mes"],
         "ultimaVez": cab["ultima_vez"],
@@ -847,7 +860,7 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
     ]
 
     aviso = correo.enviar_reporte(
-        nombre_taller=(nombre["n"] if nombre else taller),
+        nombre_taller=renombrar_taller(nombre["n"] if nombre else taller),
         vez=vez,
         cuando=datetime.now(),
         filas=filas_correo,
