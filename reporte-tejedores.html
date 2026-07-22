@@ -1413,15 +1413,15 @@ function renderGuias(row) {
     </div>`;
   }
 
-  let tRollos = 0, tGuia = 0;
+  let tRollos = 0, tPeso = 0;
   const filas = gs.map(g => {
-    const pg = g.peso_guia || 0;
-    tRollos += g.rollos || 0; tGuia += pg;
+    const pk = g.peso || 0;
+    tRollos += g.rollos || 0; tPeso += pk;
     return `<tr>
       <td><strong>${esc(g.guia)}</strong></td>
       <td>${esc(g.fecha || "—")}</td>
       <td class="n">${g.rollos ?? "—"}</td>
-      <td class="n">${formatKg(pg)}</td>
+      <td class="n">${formatKg(pk)}</td>
     </tr>`;
   }).join("");
 
@@ -1431,7 +1431,7 @@ function renderGuias(row) {
       <thead>
         <tr>
           <th>GUÍA</th><th>FECHA</th>
-          <th class="n">ROLLOS</th><th class="n">PESO GUÍA</th>
+          <th class="n">ROLLOS</th><th class="n">PESO</th>
         </tr>
       </thead>
       <tbody>${filas}</tbody>
@@ -1439,7 +1439,7 @@ function renderGuias(row) {
         <tr>
           <td colspan="2">TOTAL</td>
           <td class="n">${tRollos}</td>
-          <td class="n">${formatKg(tGuia)}</td>
+          <td class="n">${formatKg(tPeso)}</td>
         </tr>
       </tfoot>
     </table>

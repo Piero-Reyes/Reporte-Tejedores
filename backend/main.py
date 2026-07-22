@@ -506,26 +506,37 @@ select yo.usuario,
        coalesce(r.finalizado, 0) as finalizado,
        r.fecha_liquidacion      as fecha_liquidacion,
        (cc.subos is not null)   as cerrada,
-       -- Desglose del `despachado`: las guias de remision que lo componen.
-       -- Va como agregado JSON para no gastar un segundo round-trip (~170ms).
-       --
-       -- Solo guias REALES (numero de guia numerico). mov_segregado tambien guarda
-       -- 5 filas 'Historico (reporte tejedor)' con 0 rollos y sin guia: son backfill
-       -- de Mecsa a partir del propio reporte del tejedor, no entregas. Mostrarlas
-       -- como guias contradiria el Despachado (p.ej. FAM0079JLL: despachado 0.00 y
-       -- una 'guia' de 504.8). Filtrando, las 34 subordenes con guias cuadran exacto.
+       -- Desglose del `despachado`: los MISMOS componentes con que se calcula el
+       -- avance (arriba), para que el total del detalle cuadre con la columna
+       -- Despachado. Base = recojos (recogido=1) si la suborden los tiene; si no, el
+       -- seed de mov_segregado (manual=0). Siempre suma los movimientos manuales
+       -- (manual=1). El peso por fila es el que cuenta (coalesce al peso_guia si es 0).
        coalesce((
            select json_agg(json_build_object(
-                      'guia',      m.guia,
-                      'parte',     m.parte_entrada,
-                      'fecha',     m.fecha,
-                      'rollos',    m.rollos,
-                      'peso_guia', m.peso_guia,
-                      'peso_mecsa', m.peso_mecsa)
-                  order by m.fecha, m.id)
-             from mov_segregado m
-            where upper(m.suborden) = upper(s.subos)
-              and m.guia ~ '^[0-9]+$'
+                      'guia',   comp.guia,
+                      'fecha',  comp.fecha,
+                      'rollos', comp.rollos,
+                      'peso',   comp.peso)
+                  order by comp.fecha)
+             from (
+               select coalesce(nullif(rt.guia_tejedor, ''), rt.guia_mecsa) as guia,
+                      rt.fecha, rt.rollos,
+                      round((case when rt.peso > 0 then rt.peso else rt.peso_guia end)::numeric, 2) as peso
+                 from recojo_tinto rt
+                where upper(rt.suborden) = upper(s.subos) and rt.recogido = 1
+               union all
+               select ms.guia, ms.fecha, ms.rollos,
+                      round((case when ms.peso_mecsa > 0 then ms.peso_mecsa else ms.peso_guia end)::numeric, 2) as peso
+                 from mov_segregado ms
+                where upper(ms.suborden) = upper(s.subos) and coalesce(ms.manual, 0) = 0
+                  and not exists (select 1 from recojo_tinto r2
+                                   where upper(r2.suborden) = upper(s.subos) and r2.recogido = 1)
+               union all
+               select ms.guia, ms.fecha, ms.rollos,
+                      round((case when ms.peso_mecsa > 0 then ms.peso_mecsa else ms.peso_guia end)::numeric, 2) as peso
+                 from mov_segregado ms
+                where upper(ms.suborden) = upper(s.subos) and ms.manual = 1
+             ) comp
        ), '[]'::json)           as guias
   from yo
   left join nombre_taller nt on nt.taller = yo.taller
