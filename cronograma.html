@@ -16,6 +16,26 @@
     font-family:'Segoe UI', system-ui, -apple-system, Arial, sans-serif; -webkit-font-smoothing:antialiased; }
   .mono, .num, .gantt-pct, .gantt-fecha, .os-subs{ font-variant-numeric:tabular-nums; }
 
+  /* login */
+  #login-screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; background:#EAEEF4; }
+  .login-card{ width:min(400px,92vw); background:var(--card); border:1px solid var(--line);
+    border-top:3px solid var(--steel); border-radius:var(--radius); padding:36px 34px 30px; box-shadow:var(--shadow); }
+  .login-card h1{ font-size:25px; margin:0 0 2px; line-height:1.2; font-weight:600; }
+  .login-sub{ margin:0 0 26px; font-size:12px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.16em; color:var(--muted-soft); }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:12.5px; font-weight:600; color:#334155; margin-bottom:6px; }
+  .field input{ width:100%; padding:11px 13px; border-radius:9px; border:1.5px solid var(--line);
+    background:#FBFCFE; font-size:14.5px; font-family:inherit; color:var(--ink); }
+  .field input:focus{ outline:none; border-color:var(--red); box-shadow:0 0 0 3px rgba(225,29,46,.15); }
+  .alerta{ display:none; font-size:13px; padding:9px 12px; border-radius:8px; margin-bottom:16px; }
+  .alerta.err{ display:block; background:#FEF0F1; color:var(--red); border:1px solid #FBD5D9; }
+  .btn{ appearance:none; border:none; cursor:pointer; font-family:inherit; font-weight:600;
+    font-size:14.5px; border-radius:9px; padding:12px 18px; }
+  .btn:disabled{ background:#CBD5E1; cursor:not-allowed; }
+  .btn-primary{ width:100%; background:var(--red); color:#fff; }
+  .btn-primary:hover:not(:disabled){ background:var(--red-dark); }
+
   .topbar{ display:flex; align-items:center; justify-content:space-between; padding:16px 28px;
     background:var(--card); border-bottom:1px solid var(--line); border-top:3px solid var(--red); }
   .brand{ display:flex; align-items:center; gap:10px; }
@@ -26,9 +46,6 @@
     padding:8px 15px; font-size:13px; border-radius:var(--radius-sm); }
 
   .wrap{ max-width:1520px; margin:0 auto; padding:26px 24px 60px; }
-  .hello{ border-left:3px solid var(--steel); padding:3px 0 3px 14px; font-weight:500; font-size:20px;
-    margin-bottom:22px; }
-  .hello b{ font-weight:700; }
 
   .admin-bar{ display:flex; align-items:center; gap:18px; flex-wrap:wrap;
     background:var(--card); border:1px solid var(--line); border-left:3px solid var(--red);
@@ -37,21 +54,21 @@
   .chip{ font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
     background:var(--red); color:#fff; padding:3px 8px; border-radius:999px; }
   .sel{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); font-weight:600; }
-  .sel .pick{ font-size:14px; font-weight:600; color:var(--ink); padding:8px 12px; border-radius:9px;
-    border:1.5px solid var(--line); background:#FBFCFE; min-width:200px; }
-  .admin-link{ margin-left:auto; font-size:13px; font-weight:600; color:var(--red); text-decoration:none; }
+  .sel select{ font-size:14px; font-weight:600; color:var(--ink); padding:8px 12px; border-radius:9px;
+    border:1.5px solid var(--line); background:#FBFCFE; min-width:200px; font-family:inherit; }
+  .admin-links{ margin-left:auto; display:flex; gap:16px; }
+  .admin-link{ font-size:13px; font-weight:600; color:var(--red); text-decoration:none; }
+  .admin-link:hover{ text-decoration:underline; }
 
   .tabs{ display:flex; gap:2px; margin-bottom:24px; border-bottom:1px solid var(--line); }
   .tab{ background:transparent; border:none; font-family:inherit; font-size:14px; font-weight:600;
-    color:var(--muted); padding:11px 18px; border-bottom:2px solid transparent; margin-bottom:-1px; }
+    color:var(--muted); padding:11px 18px; border-bottom:2px solid transparent; margin-bottom:-1px;
+    text-decoration:none; display:inline-block; }
   .tab.on{ color:var(--ink); border-bottom-color:var(--red); }
-  .tab.off{ cursor:default; }
+  .tab.off:hover{ color:var(--ink); }
 
   h2{ font-size:22px; margin:0 0 4px; font-weight:600; text-wrap:balance; }
   .sub{ margin:0 0 18px; color:var(--muted); font-size:13.5px; max-width:70ch; }
-  .demo-badge{ display:inline-block; background:var(--amber-soft); color:#B45309; font-weight:700;
-    font-size:11px; letter-spacing:.03em; text-transform:uppercase; padding:3px 9px; border-radius:999px;
-    margin-left:8px; vertical-align:middle; }
 
   .gantt-card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
     box-shadow:var(--shadow); padding:14px 18px 18px; overflow-x:auto; }
@@ -99,39 +116,62 @@
     font-weight:700; color:var(--ink); z-index:2; }
   .gantt-subwrap{ border-left:2px solid var(--line); margin:2px 0 6px; }
   .gantt-nota{ font-size:12px; color:var(--muted-soft); margin:14px 2px 0; }
+  .estado-msg{ padding:40px; text-align:center; color:var(--muted-soft); }
   .foot{ text-align:center; color:var(--muted-soft); font-size:12px; margin-top:22px; }
 </style>
 
-<div class="topbar">
-  <div class="brand"><span class="swatch"></span><span>Reporte de Avance</span></div>
-  <button class="logout">Cerrar sesión</button>
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Reporte de Avance</h1>
+    <p class="login-sub">Cronograma · administración</p>
+    <div id="login-error" class="alerta"></div>
+    <form id="login-form">
+      <div class="field">
+        <label for="login-user">Usuario</label>
+        <input id="login-user" type="text" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label for="login-pass">Contraseña</label>
+        <input id="login-pass" type="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary">Ingresar</button>
+    </form>
+  </div>
 </div>
 
-<div class="wrap">
-  <div class="hello">Hola, <b>FAMATEX</b></div>
-
-  <div class="admin-bar">
-    <div class="lbl"><span class="chip">Admin</span> Avances de tejedores</div>
-    <div class="sel">Taller <span class="pick">FAMATEX (14) ▾</span></div>
-    <a class="admin-link" href="#">Gestionar accesos →</a>
+<div id="panel" style="display:none;">
+  <div class="topbar">
+    <div class="brand"><span class="swatch"></span><span>Reporte de Avance</span></div>
+    <button class="logout" id="logout-btn">Cerrar sesión</button>
   </div>
 
-  <div class="tabs">
-    <button class="tab off">Reporte de Stock</button>
-    <button class="tab off">Avance por OS</button>
-    <button class="tab on">Cronograma</button>
+  <div class="wrap">
+    <div class="admin-bar">
+      <div class="lbl"><span class="chip">Admin</span> Avances de tejedores</div>
+      <label class="sel">Taller <select id="admin-taller"><option value="">Elige un taller…</option></select></label>
+      <div class="admin-links">
+        <a href="./" class="admin-link">Reporte de Stock →</a>
+        <a href="admin" class="admin-link">Gestionar accesos →</a>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <a href="./" class="tab off">Reporte de Stock</a>
+      <a href="./" class="tab off">Avance por OS</a>
+      <span class="tab on">Cronograma</span>
+    </div>
+
+    <h2>Cronograma de liquidación</h2>
+    <p class="sub">Fechas de liquidación que puso el taller, por OS. La barra va del inicio a la fecha de liquidación; el relleno oscuro es lo entregado a MECSA y el claro lo tejido que el taller reporta y aún no envía. Haz clic en una OS para ver sus subórdenes.</p>
+
+    <div class="gantt-card">
+      <div id="gantt"></div>
+      <div id="gantt-vacio" class="estado-msg" style="display:none;">Elige un taller arriba para ver su cronograma.</div>
+    </div>
+    <div id="gantt-tip" class="gantt-tip" hidden></div>
+
+    <p class="foot">Portal de Tejedores · MECSA — la línea roja marca el día de hoy.</p>
   </div>
-
-  <h2>Cronograma de liquidación <span class="demo-badge">Vista de ejemplo · datos ficticios</span></h2>
-  <p class="sub">Fechas de liquidación que puso el taller, por OS. La barra va del inicio a la fecha de liquidación; el relleno oscuro es lo entregado a MECSA y el claro lo tejido que el taller reporta y aún no envía. Haz clic en una OS para ver sus subórdenes.</p>
-
-  <div class="gantt-card">
-    <div id="gantt"></div>
-    <div id="gantt-vacio" style="display:none; padding:40px; text-align:center; color:var(--muted-soft);">Aún no hay fechas de liquidación para graficar.</div>
-  </div>
-  <div id="gantt-tip" class="gantt-tip" hidden></div>
-
-  <p class="foot">Portal de Tejedores · MECSA — la línea roja marca el día de hoy.</p>
 </div>
 
 <script>
@@ -143,25 +183,117 @@ function fmtDate(dt){ return dt?String(dt.getDate()).padStart(2,"0")+"/"+String(
 function pctAvance(prog,desp){ return prog?Math.min(100,Math.round((Number(desp)||0)/prog*100)):0; }
 function pctTot(prog,desp,stock){ return prog?Math.min(100,Math.round(((Number(desp)||0)+(Number(stock)||0))/prog*100)):0; }
 
-/* Datos de ejemplo: fechas relativas a HOY para que la línea de hoy siempre calce. */
 const HOY = new Date(); HOY.setHours(0,0,0,0);
-function iso(dt){ return dt.getFullYear()+"-"+String(dt.getMonth()+1).padStart(2,"0")+"-"+String(dt.getDate()).padStart(2,"0"); }
-function d(off){ const x=new Date(HOY); x.setDate(x.getDate()+off); return iso(x); }
-/* [os, tejido, ancho, iniOff, liqOff, programado, despachado, stock_reportado] */
-const SPEC = [
-  ["FAM0071","JLL135","90",-70,-5,2400,2100,150], ["FAM0071","RLK240","80",-70,20,1800,900,500],
-  ["FAM0072","RBV165","41",-40,35,1400,300,700],
-  ["FAM0073","JLL140","45",-25,55,3200,400,900], ["FAM0073","RLK240","80",-25,48,900,850,40],
-  ["FAM0074","RBV165","39",-55,8,2000,1600,300],
-  ["FAM0075","JLL135","90",-15,70,1200,0,650], ["FAM0075","RLK240","80",-15,65,1500,450,500],
-  ["FAM0076","JLL135","150",-60,-2,1000,1000,0],
-  ["FAM0077","RBV165","41",-35,90,2800,700,1100], ["FAM0077","JLL140","45",-35,null,1300,120,300],
-  ["FAM0078","RLK240","80",-20,null,1100,0,200],
-];
-const FILAS = SPEC.map(([os,tej,anc,ini,liq,prog,desp,stock])=>({
-  os, tejido:tej, ancho:anc, programado:prog, despachado:desp, peso:stock,
-  fecha_inicio:d(ini), fecha_liquidacion: liq===null?null:d(liq),
-}));
+
+/* ------------------------------------------------------------------ */
+/* auth (mismo patron que admin.html / reporte-tejedores.html)         */
+/* ------------------------------------------------------------------ */
+
+let TOKEN = sessionStorage.getItem("admin_token") || null;
+let FILAS = [];
+
+async function api(ruta, opts = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (TOKEN) headers["X-Token"] = TOKEN;
+  const r = await fetch(ruta, { ...opts, headers });
+  const cuerpo = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(cuerpo.detail || `Error ${r.status}`);
+  return cuerpo;
+}
+
+const loginScreen = document.getElementById("login-screen");
+const panel = document.getElementById("panel");
+const loginForm = document.getElementById("login-form");
+
+loginForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  const err = document.getElementById("login-error");
+  const btn = loginForm.querySelector("button");
+  btn.disabled = true; btn.textContent = "Ingresando…";
+  try {
+    const r = await api("api/login", {
+      method: "POST",
+      body: JSON.stringify({
+        usuario: document.getElementById("login-user").value.trim(),
+        clave: document.getElementById("login-pass").value,
+      }),
+    });
+    if (r.rol !== "admin") throw new Error("El cronograma es solo para administradores.");
+    TOKEN = r.token;
+    sessionStorage.setItem("admin_token", TOKEN);
+    err.className = "alerta";
+    await entrar();
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.className = "alerta err";
+  } finally {
+    btn.disabled = false; btn.textContent = "Ingresar";
+  }
+});
+
+document.getElementById("logout-btn").addEventListener("click", () => {
+  if (TOKEN) { api("api/logout", { method: "POST" }).catch(() => {}); }
+  sessionStorage.removeItem("admin_token");
+  TOKEN = null;
+  panel.style.display = "none";
+  loginScreen.style.display = "flex";
+  loginForm.reset();
+});
+
+async function entrar() {
+  loginScreen.style.display = "none";
+  panel.style.display = "block";
+  await cargarTalleres();
+}
+
+/* ------------------------------------------------------------------ */
+/* datos: reusa /api/stock, la misma fuente que "Avance por OS"        */
+/* ------------------------------------------------------------------ */
+
+async function cargarTalleres() {
+  let r;
+  try {
+    r = await api("api/stock");
+  } catch (ex) {
+    sessionStorage.removeItem("admin_token");
+    TOKEN = null;
+    panel.style.display = "none";
+    loginScreen.style.display = "flex";
+    document.getElementById("login-error").textContent = ex.message;
+    document.getElementById("login-error").className = "alerta err";
+    return;
+  }
+  const sel = document.getElementById("admin-taller");
+  sel.innerHTML = `<option value="">Elige un taller…</option>` +
+    (r.talleres || []).map(t => `<option value="${esc(t.codigo)}">${esc(t.nombre || t.codigo)} (${t.pendientes})</option>`).join("");
+  sel.onchange = () => { if (sel.value) cargarTaller(sel.value); else { FILAS = []; renderGantt(); } };
+  renderGantt();
+}
+
+async function cargarTaller(taller) {
+  const cont = document.getElementById("gantt"), vacio = document.getElementById("gantt-vacio");
+  cont.innerHTML = "";
+  vacio.style.display = "block";
+  vacio.textContent = "Cargando…";
+  try {
+    const r = await api("api/stock?taller=" + encodeURIComponent(taller));
+    FILAS = (r.data || []).map(f => ({
+      os: f.os, tejido: f.tejido, ancho: f.ancho,
+      programado: f.programado, despachado: f.despachado, peso: f.peso,
+      fecha_inicio: f.fecha_inicio, fecha_liquidacion: f.fecha_liquidacion,
+    }));
+  } catch (ex) {
+    FILAS = [];
+    vacio.textContent = ex.message;
+    return;
+  }
+  vacio.textContent = "Aún no hay fechas de liquidación para graficar.";
+  renderGantt();
+}
+
+/* ------------------------------------------------------------------ */
+/* gantt                                                                */
+/* ------------------------------------------------------------------ */
 
 function renderGantt(){
   const cont=document.getElementById("gantt"), vacio=document.getElementById("gantt-vacio");
@@ -211,7 +343,6 @@ function renderGantt(){
       if(!sub) return; sub.hidden=!sub.hidden; const c=row.querySelector(".caret-gantt"); if(c) c.classList.toggle("abierto",!sub.hidden); });
   });
 }
-renderGantt();
 
 /* Tooltip: se engancha una vez a #gantt y muestra la fecha de liquidación al pasar el mouse. */
 (function(){
@@ -230,4 +361,6 @@ renderGantt();
   });
   gantt.addEventListener("mouseleave",()=>{ tip.hidden=true; });
 })();
+
+if (TOKEN) entrar();
 </script>

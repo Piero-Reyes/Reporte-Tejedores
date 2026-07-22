@@ -625,6 +625,14 @@ def admin_page():
         return HTMLResponse(fh.read())
 
 
+@app.get("/cronograma", response_class=HTMLResponse)
+def cronograma_page():
+    """Gantt de liquidacion, solo admin. Reutiliza /api/stock?taller= (mismos datos
+    que 'Avance por OS'): no hace falta un endpoint nuevo."""
+    with open(os.path.join(os.path.dirname(__file__), "..", "cronograma.html"), encoding="utf-8") as fh:
+        return HTMLResponse(fh.read())
+
+
 @app.get("/api/admin/tejedores")
 def listar_tejedores(x_token: str | None = Header(default=None)):
     admin_desde_token(x_token)
