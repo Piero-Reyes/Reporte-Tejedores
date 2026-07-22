@@ -470,14 +470,37 @@ ultimo as (
 cerradas as (
     select subos from subordenes_cerradas where taller = (select taller from yo)
 ),
-{SQL_SUBORDENES}
+{SQL_SUBORDENES},
+-- Avance (kg despachado) con la MISMA formula que OC_Hilo, para que no diverjan.
+-- guia_os.consumo quedo de lado (columna heredada del Achorado; no considera recojos).
+--   base = recojo_tinto (recogido=1) si la suborden tiene recojos;
+--          si NO tiene recojos, el "seed" de mov_segregado (manual=0).
+--   + SIEMPRE los mov_segregado manuales (manual=1) por encima de la base.
+-- Peso por fila con coalesce (si el primero es 0, cae al segundo). Indexado por subos.
+avance as (
+    select s.subos,
+           round((
+               coalesce(case when rec.subos is not null then rec.s else seed.s end, 0)
+               + coalesce(man.s, 0)
+           )::numeric, 2) as despachado
+      from subordenes s
+      left join (select upper(suborden) subos, sum(case when peso > 0 then peso else peso_guia end) s
+                   from recojo_tinto where recogido = 1 group by 1) rec  on rec.subos  = upper(s.subos)
+      left join (select upper(suborden) subos, sum(case when peso_mecsa > 0 then peso_mecsa else peso_guia end) s
+                   from mov_segregado where coalesce(manual, 0) = 0 group by 1) seed on seed.subos = upper(s.subos)
+      left join (select upper(suborden) subos, sum(case when peso_mecsa > 0 then peso_mecsa else peso_guia end) s
+                   from mov_segregado where manual = 1 group by 1) man  on man.subos  = upper(s.subos)
+)
 select yo.usuario,
        yo.taller,
        coalesce(nt.nombre, yo.usuario) as nombre_taller,
        (select meses from entregas) as entregas_mes,
        (select vez from ult)    as ultima_vez,
        s.subos, s.os, s.tejido, s.ancho, s.fibra, s.nombre, s.proveedor,
-       s.programado, s.despachado, s.queda, s.fecha_inicio, s.estado_actual,
+       s.programado,
+       av.despachado,
+       round((s.programado - av.despachado)::numeric, 2) as queda,
+       s.fecha_inicio, s.estado_actual,
        r.rollos                 as rollos,
        r.peso                   as peso,
        coalesce(r.finalizado, 0) as finalizado,
@@ -509,6 +532,7 @@ select yo.usuario,
   left join subordenes s on true
   left join ultimo r on r.subos = s.subos
   left join cerradas cc on cc.subos = s.subos
+  left join avance av on av.subos = s.subos
  order by s.os, s.tejido
 """
 
