@@ -584,27 +584,44 @@ def _fecha_liq(v: str | None):
 
 # Overrides de nombre comercial: se aplican al MOSTRAR, sin depender de lo que traiga
 # guia_os.proveedor_tejeduria (un re-import del Achorado puede reintroducir el nombre
-# viejo). Extensible: si mañana se renombra otro taller, se agrega aca.
+# viejo). Tambien uniformiza el formato (Mayuscula inicial, sin razones sociales
+# a gritos). Extensible: si aparece otro taller, se agrega el par (patron, nombre).
+_NOMBRES_TALLER = [
+    ("TRICOT FINE",  "T&F Textiles S.A."),
+    ("T&F TEXTILES", "T&F Textiles S.A."),
+    ("FAMICOTTON",   "Famicotton"),
+    ("LR KNITS",     "LR Knits SAC"),
+    ("DEFRANCO",     "Textiles DeFranco"),
+    ("ROCA29",       "Textiles Roca"),
+    ("SAN ISIDRO",   "Textiles San Isidro"),
+]
+
+
 def renombrar_taller(nombre: str | None) -> str | None:
     up = (nombre or "").strip().upper()
-    if "TRICOT FINE" in up or up.startswith("T&F TEXTILES"):
-        return "T&F Textiles S.A."
+    for patron, bonito in _NOMBRES_TALLER:
+        if patron in up:
+            return bonito
     return nombre
 
 
 def _talleres_activos(conn) -> list[dict]:
     """Talleres con subordenes PENDIENTE en guia_os: el set que el admin puede ver."""
+    # Pendientes segun estado_actual (la fuente del estado), igual que SQL_STOCK:
+    # asi el numero del selector coincide con las filas que luego muestra la tabla.
     talleres = [dict(r) for r in conn.execute(
         """select left(orden,3) as codigo,
                   max(proveedor_tejeduria) as nombre,
-                  count(*) filter (where upper(trim(estado)) = 'PENDIENTE') as pendientes
+                  count(*) filter (where coalesce(estado_actual,'') <> 'Cerrado') as pendientes
              from guia_os where orden is not null and orden <> ''
             group by 1
-           having count(*) filter (where upper(trim(estado)) = 'PENDIENTE') > 0
+           having count(*) filter (where coalesce(estado_actual,'') <> 'Cerrado') > 0
             order by max(proveedor_tejeduria)"""
     ).fetchall()]
     for t in talleres:
         t["nombre"] = renombrar_taller(t["nombre"])
+    # Alfabetico por el nombre YA uniformizado (no por el crudo de la base).
+    talleres.sort(key=lambda t: (t["nombre"] or "").upper())
     return talleres
 
 
@@ -689,18 +706,20 @@ def listar_tejedores(x_token: str | None = Header(default=None)):
             """select usuario, tejedor as taller, activo, (token is not null) as con_sesion
                  from usuarios where es_tejedor = 1 order by tejedor, usuario"""
         ).fetchall()
-        # Talleres reales: los que tienen subordenes PENDIENTE en guia_os.
-        talleres = conn.execute(
+        # Talleres reales: los que tienen subordenes pendientes (estado_actual) en guia_os.
+        talleres = [dict(t) for t in conn.execute(
             """select left(orden,3) as codigo,
-                      count(*) filter (where upper(trim(estado)) = 'PENDIENTE') as pendientes,
+                      count(*) filter (where coalesce(estado_actual,'') <> 'Cerrado') as pendientes,
                       max(proveedor_tejeduria) as nombre
                  from guia_os
                 where orden is not null and orden <> ''
                 group by 1
-               having count(*) filter (where upper(trim(estado)) = 'PENDIENTE') > 0
+               having count(*) filter (where coalesce(estado_actual,'') <> 'Cerrado') > 0
                 order by 1"""
-        ).fetchall()
-    return {"usuarios": [dict(u) for u in usuarios], "talleres": [dict(t) for t in talleres]}
+        ).fetchall()]
+    for t in talleres:
+        t["nombre"] = renombrar_taller(t["nombre"])
+    return {"usuarios": [dict(u) for u in usuarios], "talleres": talleres}
 
 
 @app.post("/api/admin/tejedores")
