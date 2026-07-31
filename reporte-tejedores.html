@@ -230,14 +230,14 @@
   .caret-os{ margin-right:2px; }
 
 
-  .fecha-liq-input{
+  .fecha-liq-input, .fecha-ini-input{
     width:128px; padding:8px 8px;
     border-radius:9px; border:1.5px solid var(--line);
     background:#FBFCFE; font-family:inherit; font-size:13.5px; color:var(--ink);
   }
-  .fecha-liq-input:focus{ outline:none; border-color:var(--red);
+  .fecha-liq-input:focus, .fecha-ini-input:focus{ outline:none; border-color:var(--red);
     box-shadow:0 0 0 3px rgba(225,29,46,.14); }
-  .solo-lectura .fecha-liq-input{
+  .solo-lectura .fecha-liq-input, .solo-lectura .fecha-ini-input{
     border-color:transparent; background:transparent; padding-left:0;
     color:var(--ink); pointer-events:none;
   }
@@ -821,13 +821,6 @@ function formatKg(n) {
   return Number(n).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/* El backend manda las fechas en ISO 'YYYY-MM-DD'; en pantalla se muestran
-   DD/MM/YYYY (formato local). Si algo no viene en ISO, se deja tal cual. */
-function fechaDMY(iso) {
-  if (!iso) return "—";
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
-}
 
 
 /* Escapa texto antes de meterlo en innerHTML. Los nombres de OS/proveedor/guia
@@ -1016,8 +1009,11 @@ function pintarPortal(r) {
     // finalizado y fecha_liquidacion arrastran el ultimo valor: son el estado que
     // Mecsa monitorea, no un conteo diario.
     ESTADO[f.subos] = esAdmin
-      ? { rollos: f.rollos, peso: f.peso, finalizado: !!f.finalizado, fecha_liquidacion: f.fecha_liquidacion ?? null }
-      : { rollos: null, peso: null, finalizado: !!f.finalizado, fecha_liquidacion: f.fecha_liquidacion ?? null };
+      ? { rollos: f.rollos, peso: f.peso, finalizado: !!f.finalizado, fecha_liquidacion: f.fecha_liquidacion ?? null,
+          fecha_inicio: f.fecha_inicio_taller ?? f.fecha_inicio ?? null }
+      : { rollos: null, peso: null, finalizado: !!f.finalizado, fecha_liquidacion: f.fecha_liquidacion ?? null,
+          // Inicio efectivo: la fecha corregida por el taller manda; si no hay, la de llegada.
+          fecha_inicio: f.fecha_inicio_taller ?? f.fecha_inicio ?? null };
   });
 
   if (esAdmin) {
@@ -1040,7 +1036,7 @@ function aplicarModoLectura(activo) {
   document.getElementById("table-foot").style.display = activo ? "none" : "flex";
   document.querySelectorAll("#table-body .stock-input").forEach(i => { i.readOnly = activo; });
   // El date-picker ignora readOnly en varios navegadores: se deshabilita del todo.
-  document.querySelectorAll("#table-body .fecha-liq-input").forEach(i => { i.disabled = activo; });
+  document.querySelectorAll("#table-body .fecha-liq-input, #table-body .fecha-ini-input").forEach(i => { i.disabled = activo; });
   document.querySelectorAll("#table-body .estado-check").forEach(c => { c.disabled = activo; });
 }
 
@@ -1368,7 +1364,11 @@ function renderTable() {
         <td class="prov-cell" data-label="Proveedor" title="${esc(row.proveedor || "")}">${esc(row.proveedor || "—")}</td>
         <td class="num-cell" data-label="Programado (kg)">${formatKg(row.programado)}</td>
         <td class="num-cell" data-label="Despachado (kg)">${formatKg(row.despachado)}</td>
-        <td class="num-cell" data-label="Fecha inicio">${esc(fechaDMY(row.fecha_inicio))}</td>
+        <td data-label="Fecha inicio">
+          <input type="date" class="stock-input fecha-ini-input"
+                 value="${esc(e.fecha_inicio ?? "")}"
+                 title="Fecha real de inicio. Llega pre-llenada con la fecha en que recibiste la mercadería; corrígela si empezaste otro día.">
+        </td>
         <td data-label="Rollos">
           <input type="number" min="0" step="1" class="stock-input rollos-input"
                  value="${e.rollos ?? ""}" placeholder="${esc(phRollos)}">
@@ -1453,6 +1453,7 @@ function attachRowHandlers() {
     const pesoInput   = tr.querySelector(".peso-input");
     const estadoCheck = tr.querySelector(".estado-check");
     const fechaLiqInput = tr.querySelector(".fecha-liq-input");
+    const fechaIniInput = tr.querySelector(".fecha-ini-input");
     const badge       = tr.querySelector(".estado-badge");
     const caret       = tr.querySelector(".caret");
     const rowData     = FILAS.find(x => x.subos === subos) || {};
@@ -1463,6 +1464,7 @@ function attachRowHandlers() {
         peso:   pesoInput.value === "" ? null : Number(pesoInput.value),
         finalizado: estadoCheck ? estadoCheck.checked : !!(ESTADO[subos] && ESTADO[subos].finalizado),
         fecha_liquidacion: fechaLiqInput.value || null,
+        fecha_inicio: fechaIniInput ? (fechaIniInput.value || null) : null,
       };
       // El Estado es derivado: se recalcula en vivo al teclear kg o marcar la casilla.
       if (badge) {
@@ -1478,6 +1480,7 @@ function attachRowHandlers() {
     if (pesoInput) pesoInput.addEventListener("input", marcar);
     if (estadoCheck) estadoCheck.addEventListener("change", marcar);
     if (fechaLiqInput) fechaLiqInput.addEventListener("input", marcar);
+    if (fechaIniInput) fechaIniInput.addEventListener("input", marcar);
 
     if (caret) {
       caret.addEventListener("click", () => {
@@ -1505,6 +1508,7 @@ document.getElementById("enviar-btn").addEventListener("click", async function (
     peso: ESTADO[f.subos].peso,
     finalizado: ESTADO[f.subos].finalizado,
     fecha_liquidacion: ESTADO[f.subos].fecha_liquidacion,
+    fecha_inicio: ESTADO[f.subos].fecha_inicio,
   }));
 
   const conDatos = filas.filter(f =>

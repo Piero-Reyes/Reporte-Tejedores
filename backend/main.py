@@ -235,6 +235,10 @@ class FilaReporte(BaseModel):
     # Fecha estimada en que el tejedor liquidara la suborden (planificacion de
     # Mecsa). Llega como ISO 'YYYY-MM-DD' desde el <input type=date>; None = vacia.
     fecha_liquidacion: str | None = None
+    # Fecha de inicio REAL segun el taller. guia_os.fecha es cuando llego la
+    # mercaderia, pero no siempre se empieza ese dia; el taller la puede corregir.
+    # No pisa guia_os (columna de OC_Hilo): vive en logs_ingresos, como la liquidacion.
+    fecha_inicio: str | None = None
 
 
 class ReporteReq(BaseModel):
@@ -460,7 +464,7 @@ ult as (
 -- vez = max(vez) le borraria el estado. El AppScript arrastra el ultimo conocido.
 ultimo as (
     select distinct on (l.subos)
-           l.subos, l.rollos, l.peso, l.finalizado, l.fecha_liquidacion, l.vez
+           l.subos, l.rollos, l.peso, l.finalizado, l.fecha_liquidacion, l.fecha_inicio, l.vez
       from logs_ingresos l
      where l.taller = (select taller from yo)
      order by l.subos, l.vez desc
@@ -505,6 +509,9 @@ select yo.usuario,
        r.peso                   as peso,
        coalesce(r.finalizado, 0) as finalizado,
        r.fecha_liquidacion      as fecha_liquidacion,
+       -- Fecha de inicio corregida por el taller (si la reporto); tiene prioridad
+       -- sobre guia_os.fecha al mostrar. La original no se toca.
+       r.fecha_inicio           as fecha_inicio_taller,
        (cc.subos is not null)   as cerrada,
        -- Desglose del `despachado`: los MISMOS componentes con que se calcula el
        -- avance (arriba), para que el total del detalle cuadre con la columna
@@ -548,8 +555,9 @@ select yo.usuario,
 """
 
 CAMPOS_FILA = ("subos", "os", "tejido", "ancho", "fibra", "nombre", "proveedor",
-               "programado", "despachado", "queda", "fecha_inicio", "estado_actual",
-               "rollos", "peso", "finalizado", "fecha_liquidacion", "cerrada", "guias")
+               "programado", "despachado", "queda", "fecha_inicio", "fecha_inicio_taller",
+               "estado_actual", "rollos", "peso", "finalizado", "fecha_liquidacion",
+               "cerrada", "guias")
 
 
 def _fecha_iso(v: str | None) -> str | None:
@@ -657,10 +665,12 @@ def get_stock(x_token: str | None = Header(default=None), taller: str | None = N
         # Las fechas vienen como texto en 4 variantes de D/M/YYYY; el AppScript
         # las muestra en ISO. Se normaliza aca para que la tabla sea homogenea.
         fila["fecha_inicio"] = _fecha_iso(f["fecha_inicio"])
-        # fecha_liquidacion viene como date de Postgres; el <input type=date> del
-        # front la quiere en ISO 'YYYY-MM-DD'.
+        # fecha_liquidacion / fecha_inicio_taller vienen como date de Postgres;
+        # el <input type=date> del front las quiere en ISO 'YYYY-MM-DD'.
         fl = f["fecha_liquidacion"]
         fila["fecha_liquidacion"] = fl.isoformat() if fl else None
+        ft = f["fecha_inicio_taller"]
+        fila["fecha_inicio_taller"] = ft.isoformat() if ft else None
         for g in fila["guias"]:
             g["fecha"] = _fecha_iso(g.get("fecha"))
         data.append(fila)
@@ -851,11 +861,12 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
                 conn.execute(
                     """insert into logs_ingresos
                          (subos, fecha_ingreso, rollos, peso, peso_con_mas_rep,
-                          peso_pendiente, finalizado, fecha_liquidacion, vez, taller)
-                       values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                          peso_pendiente, finalizado, fecha_liquidacion, fecha_inicio,
+                          vez, taller)
+                       values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (f.subos, fecha, f.rollos, f.peso, peso_con_mas_rep,
                      None, 1 if f.finalizado else 0, _fecha_liq(f.fecha_liquidacion),
-                     vez, taller),
+                     _fecha_liq(f.fecha_inicio), vez, taller),
                 )
 
         # Aviso al equipo de Mecsa. Fuera de la transaccion: el reporte ya esta
