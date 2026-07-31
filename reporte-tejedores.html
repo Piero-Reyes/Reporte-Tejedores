@@ -559,13 +559,19 @@
   }
 
   .progress-track{
-    width:78px; height:7px;
+    width:78px; height:7px; position:relative;
     background:#E7EDF5; border-radius:999px; overflow:hidden;
   }
+  /* Dos tonos: rojo = verificado por MECSA (despachado); claro = lo que el
+     taller reporta y aun no se verifica. Al verificarse, pasa al rojo solo. */
   .progress-fill{
-    height:100%;
+    position:absolute; left:0; top:0; bottom:0;
     background: linear-gradient(90deg, var(--red), #F87171);
     border-radius:999px; transition:width .3s ease;
+  }
+  .progress-fill.rep{
+    background:#F6BDC3; border-radius:0 999px 999px 0;
+    transition:left .3s ease, width .3s ease;
   }
   .progress-pct{
     font-size:12px; color:var(--muted); margin-top:4px; display:block; font-weight:600;
@@ -1625,6 +1631,10 @@ function renderTable() {
     const pct = progressPct(row);
     const e = ESTADO[row.subos];
     const est = estadoDe(row, e);
+    // Tono claro de la barra: lo reportado (lo que teclea hoy o su ultimo reporte)
+    // encima de lo verificado. Se actualiza en vivo al escribir el peso.
+    const pesoRep = (e.peso != null ? e.peso : row.peso) || 0;
+    const pctT = pctTot(row.programado, row.despachado, pesoRep);
     const nG = (row.guias || []).length;
     // Pista del ultimo reporte: los campos siguen VACIOS (el conteo es del dia),
     // pero se ve en gris lo que se reporto la vez pasada. Sin esto, una suborden
@@ -1657,8 +1667,11 @@ function renderTable() {
                  value="${e.peso ?? ""}" placeholder="${esc(phPeso)}">
         </td>
         <td data-label="Progreso">
-          <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
-          <span class="progress-pct">${pct}%</span>
+          <div class="progress-track">
+            <div class="progress-fill rep" style="left:${pct}%;width:${Math.max(0, pctT - pct)}%"></div>
+            <div class="progress-fill" style="width:${pct}%"></div>
+          </div>
+          <span class="progress-pct" title="Verificado por MECSA ${pct}% · reportado por enviar ${Math.max(0, pctT - pct)}%">${pctT}%</span>
         </td>
         <td data-label="Estado">
           <span class="estado-badge ${est.cls}">${est.txt}</span>
@@ -1750,6 +1763,17 @@ function attachRowHandlers() {
         const info = estadoDe(rowData, ESTADO[subos]);
         badge.textContent = info.txt;
         badge.className = "estado-badge " + info.cls;
+      }
+      // La barra tambien: el tono claro crece con el peso que va tecleando.
+      const pctD = progressPct(rowData);
+      const pesoRep = (ESTADO[subos].peso != null ? ESTADO[subos].peso : rowData.peso) || 0;
+      const pctT = pctTot(rowData.programado, rowData.despachado, pesoRep);
+      const rep = tr.querySelector(".progress-fill.rep");
+      if (rep) { rep.style.left = pctD + "%"; rep.style.width = Math.max(0, pctT - pctD) + "%"; }
+      const lbl = tr.querySelector(".progress-pct");
+      if (lbl) {
+        lbl.textContent = pctT + "%";
+        lbl.title = `Verificado por MECSA ${pctD}% · reportado por enviar ${Math.max(0, pctT - pctD)}%`;
       }
       tr.classList.add("row-dirty");
       renderStats();   // el contador "Por completar" baja al ir llenando
