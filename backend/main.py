@@ -245,6 +245,16 @@ class ReporteReq(BaseModel):
     filas: list[FilaReporte]
 
 
+class FilaFechas(BaseModel):
+    subos: str
+    fecha_inicio: str | None = None
+    fecha_liquidacion: str | None = None
+
+
+class FechasReq(BaseModel):
+    filas: list[FilaFechas]
+
+
 class TejedorReq(BaseModel):
     usuario: str
     taller: str
@@ -473,7 +483,7 @@ ult as (
 -- vez = max(vez) le borraria el estado. El AppScript arrastra el ultimo conocido.
 ultimo as (
     select distinct on (l.subos)
-           l.subos, l.rollos, l.peso, l.finalizado, l.fecha_liquidacion, l.fecha_inicio, l.vez
+           l.subos, l.rollos, l.peso, l.finalizado, l.vez
       from logs_ingresos l
      where l.taller = (select taller from yo)
      order by l.subos, l.vez desc
@@ -482,6 +492,12 @@ ultimo as (
 -- pero siguen en "Avance por OS" como historico. Tabla propia del portal.
 cerradas as (
     select subos from subordenes_cerradas where taller = (select taller from yo)
+),
+-- Fechas del taller (inicio corregido + liquidacion): fuente unica suborden_fechas.
+-- Se guardan con "Guardar fechas" (sin crear reporte) o junto con el reporte.
+fechas as (
+    select subos, fecha_inicio, fecha_liquidacion
+      from suborden_fechas where taller = (select taller from yo)
 ),
 {SQL_SUBORDENES},
 -- Avance (kg despachado) con la MISMA formula que OC_Hilo, para que no diverjan.
@@ -517,10 +533,10 @@ select yo.usuario,
        r.rollos                 as rollos,
        r.peso                   as peso,
        coalesce(r.finalizado, 0) as finalizado,
-       r.fecha_liquidacion      as fecha_liquidacion,
-       -- Fecha de inicio corregida por el taller (si la reporto); tiene prioridad
+       fe.fecha_liquidacion     as fecha_liquidacion,
+       -- Fecha de inicio corregida por el taller (si la guardo); tiene prioridad
        -- sobre guia_os.fecha al mostrar. La original no se toca.
-       r.fecha_inicio           as fecha_inicio_taller,
+       fe.fecha_inicio          as fecha_inicio_taller,
        (cc.subos is not null)   as cerrada,
        -- Desglose del `despachado`: los MISMOS componentes con que se calcula el
        -- avance (arriba), para que el total del detalle cuadre con la columna
@@ -559,6 +575,7 @@ select yo.usuario,
   left join subordenes s on true
   left join ultimo r on r.subos = s.subos
   left join cerradas cc on cc.subos = s.subos
+  left join fechas fe on fe.subos = s.subos
   left join avance av on av.subos = s.subos
  order by s.os, s.tejido
 """
@@ -620,6 +637,22 @@ def renombrar_taller(nombre: str | None) -> str | None:
         if patron in up:
             return bonito
     return nombre
+
+
+def _guardar_fechas(conn, taller: str, subos: str, fecha_inicio, fecha_liquidacion) -> None:
+    """Upsert en suborden_fechas (la fuente unica de fechas del taller).
+    Guarda tal cual lo enviado: una fecha vacia (None) tambien se persiste,
+    para que el taller pueda BORRAR una fecha que puso por error."""
+    conn.execute(
+        """insert into suborden_fechas (subos, taller, fecha_inicio, fecha_liquidacion)
+             values (%s, %s, %s, %s)
+           on conflict (subos) do update
+               set fecha_inicio = excluded.fecha_inicio,
+                   fecha_liquidacion = excluded.fecha_liquidacion,
+                   taller = excluded.taller,
+                   actualizado = now()""",
+        (subos, taller, _fecha_liq(fecha_inicio), _fecha_liq(fecha_liquidacion)),
+    )
 
 
 def _talleres_activos(conn) -> list[dict]:
@@ -883,6 +916,8 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
                      None, 1 if f.finalizado else 0, _fecha_liq(f.fecha_liquidacion),
                      _fecha_liq(f.fecha_inicio), vez, taller),
                 )
+                # Fuente unica de fechas: el reporte tambien las deja en suborden_fechas.
+                _guardar_fechas(conn, taller, f.subos, f.fecha_inicio, f.fecha_liquidacion)
 
         # Aviso al equipo de Mecsa. Fuera de la transaccion: el reporte ya esta
         # guardado y el correo no debe poder tumbarlo.
@@ -919,3 +954,38 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
         print(f"[correo] reporte #{vez} de {taller} NO enviado: {aviso['motivo']}")
 
     return {"ok": True, "vez": vez, "filas": len(req.filas), "correo": aviso}
+
+
+@app.post("/api/fechas")
+def post_fechas(req: FechasReq, x_token: str | None = Header(default=None)):
+    """Guarda SOLO las fechas (inicio corregido / liquidacion), sin crear un
+    reporte: no genera `vez` ni dispara el correo a Mecsa. Para el tejedor que
+    entra unicamente a ajustar sus fechas."""
+    u = tejedor_desde_token(x_token)
+    taller = u["tejedor"]
+
+    if not req.filas:
+        raise HTTPException(400, "No hay fechas que guardar.")
+    if len(req.filas) > 2000:
+        raise HTTPException(400, "Demasiadas filas.")
+
+    with db() as conn:
+        # Mismas subordenes validas que el reporte (guia_os pendientes + EPTes).
+        validas = {
+            r["subos"]
+            for r in conn.execute(
+                f"""with yo as (select %(taller)s::text as taller),
+                    {SQL_SUBORDENES}
+                    select subos from subordenes""",
+                {"taller": taller},
+            ).fetchall()
+        }
+        desconocidas = [f.subos for f in req.filas if f.subos not in validas]
+        if desconocidas:
+            raise HTTPException(400, f"Subordenes no asignadas a {taller}: {desconocidas}")
+
+        with conn.transaction():
+            for f in req.filas:
+                _guardar_fechas(conn, taller, f.subos, f.fecha_inicio, f.fecha_liquidacion)
+
+    return {"ok": True, "filas": len(req.filas)}

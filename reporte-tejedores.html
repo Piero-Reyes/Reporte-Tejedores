@@ -602,6 +602,15 @@
   .btn-enviar:hover:not(:disabled){ background:var(--red-dark); }
   .btn-enviar:disabled{ background:#CBD5E1; cursor:not-allowed; box-shadow:none; }
 
+  /* Guardar SOLO fechas: accion secundaria (no crea reporte ni manda correo).
+     Se habilita recien cuando alguna fecha cambio respecto a lo guardado. */
+  .btn-fechas{
+    background:#fff; color:var(--navy); border:1.5px solid var(--steel);
+    padding:13px 22px; font-size:14px; margin-right:12px;
+  }
+  .btn-fechas:hover:not(:disabled){ background:var(--steel-soft); }
+  .btn-fechas:disabled{ color:#94A3B8; border-color:var(--line); cursor:not-allowed; }
+
   .row-dirty td{ background:var(--amber-soft); }
 
   #toast{
@@ -803,6 +812,8 @@
           Reporte <span class="mono" id="vez-num">—</span> ·
           <span id="foot-hint">Se envía todo junto, en un solo reporte.</span>
         </div>
+        <button id="fechas-btn" class="btn btn-fechas" disabled
+                title="Guarda solo las fechas de inicio y liquidación, sin enviar un reporte.">Guardar fechas</button>
         <button id="enviar-btn" class="btn btn-enviar">Enviar reporte</button>
       </div>
     </div>
@@ -1656,7 +1667,7 @@ function renderTable() {
         <td class="num-cell" data-label="Despachado (kg)">${formatKg(row.despachado)}</td>
         <td data-label="Fecha inicio">
           <input type="date" class="stock-input fecha-ini-input"
-                 value="${esc(e.fecha_inicio ?? "")}"
+                 value="${esc(e.fecha_inicio ?? "")}" data-init="${esc(e.fecha_inicio ?? "")}"
                  title="Fecha real de inicio. Llega pre-llenada con la fecha en que recibiste la mercadería; corrígela si empezaste otro día.">
         </td>
         <td data-label="Rollos">
@@ -1679,7 +1690,7 @@ function renderTable() {
         </td>
         <td data-label="Fecha liquidación">
           <input type="date" class="stock-input fecha-liq-input"
-                 value="${e.fecha_liquidacion ?? ""}">
+                 value="${e.fecha_liquidacion ?? ""}" data-init="${esc(e.fecha_liquidacion ?? "")}">
         </td>
         <td data-label="Terminada">
           <input type="checkbox" class="estado-check" ${e.finalizado ? "checked" : ""}>
@@ -1692,6 +1703,7 @@ function renderTable() {
   }).join("");
 
   attachRowHandlers();
+  actualizarBtnFechas();
 }
 
 /* Desglose del Despachado: de que guias de remision se compone.
@@ -1778,6 +1790,7 @@ function attachRowHandlers() {
       }
       tr.classList.add("row-dirty");
       renderStats();   // el contador "Por completar" baja al ir llenando
+      actualizarBtnFechas();
     }
 
     if (rollosInput) rollosInput.addEventListener("input", marcar);
@@ -1801,6 +1814,41 @@ function attachRowHandlers() {
 /* ------------------------------------------------------------------ */
 /* envio del reporte (un solo `vez` para todas las filas)              */
 /* ------------------------------------------------------------------ */
+
+/* ---- Guardar SOLO fechas: no crea reporte ni dispara correo ---- */
+function filasFechasCambiadas() {
+  const out = [];
+  document.querySelectorAll("#table-body tr[data-subos]").forEach(tr => {
+    const ini = tr.querySelector(".fecha-ini-input");
+    const liq = tr.querySelector(".fecha-liq-input");
+    if (!ini || !liq) return;
+    if (ini.value !== (ini.dataset.init || "") || liq.value !== (liq.dataset.init || "")) {
+      out.push({ subos: tr.dataset.subos, fecha_inicio: ini.value || null, fecha_liquidacion: liq.value || null });
+    }
+  });
+  return out;
+}
+function actualizarBtnFechas() {
+  const b = document.getElementById("fechas-btn");
+  if (b) b.disabled = filasFechasCambiadas().length === 0;
+}
+document.getElementById("fechas-btn").addEventListener("click", async function () {
+  const btn = this;
+  const filas = filasFechasCambiadas();
+  if (!filas.length) return;
+  btn.disabled = true;
+  btn.textContent = "Guardando…";
+  try {
+    const r = await api("api/fechas", { method: "POST", body: JSON.stringify({ filas }) });
+    showToast(`Fechas guardadas · ${r.filas} suborden${r.filas > 1 ? "es" : ""}`);
+    await cargarStock();   // re-render: los data-init quedan al dia y el boton se apaga
+  } catch (err) {
+    showToast("Error: " + err.message);
+  } finally {
+    btn.textContent = "Guardar fechas";
+    actualizarBtnFechas();
+  }
+});
 
 document.getElementById("enviar-btn").addEventListener("click", async function () {
   const btn = this;
