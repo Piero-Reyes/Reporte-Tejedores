@@ -359,6 +359,11 @@ externas as (
        -- Solo las PENDIENTES: se muestran todas menos las que OC_Hilo marco 'Cerrado'
        -- en guia_os.estado_actual (esa columna es ahora la fuente del estado).
        and coalesce(g.estado_actual, '') <> 'Cerrado'
+       -- Las OBSERVADAS (suborden_estado.observada, marcadas en OC_Hilo) no se
+       -- muestran en ninguna parte del portal ni aceptan reportes.
+       and not exists (select 1 from suborden_estado se
+                        where upper(se.suborden) = upper(g.suborden)
+                          and coalesce(se.observada, 0) <> 0)
 ),
 movs as (
     select suborden, sum(peso_mecsa) as mecsa from mov_segregado group by suborden
@@ -389,6 +394,10 @@ eptes as (
        and coalesce(l.tejido_cerrado, 0) = 0
        and coalesce(l.liquidado, 0) = 0
        and not exists (select 1 from guia_os g where upper(g.orden) = upper(p.os))
+       -- Tambien aca: una EPTe observada no aparece en el portal.
+       and not exists (select 1 from suborden_estado se
+                        where upper(se.suborden) = upper(p.os) || l.tejido || {_ANCHO_L}
+                          and coalesce(se.observada, 0) <> 0)
 ),
 subordenes as (
     select * from externas
@@ -622,6 +631,9 @@ def _talleres_activos(conn) -> list[dict]:
                   max(proveedor_tejeduria) as nombre,
                   count(*) filter (where coalesce(estado_actual,'') <> 'Cerrado') as pendientes
              from guia_os where orden is not null and orden <> ''
+               and not exists (select 1 from suborden_estado se
+                                where upper(se.suborden) = upper(guia_os.suborden)
+                                  and coalesce(se.observada, 0) <> 0)
             group by 1
            having count(*) filter (where coalesce(estado_actual,'') <> 'Cerrado') > 0
             order by max(proveedor_tejeduria)"""
@@ -715,6 +727,9 @@ def listar_tejedores(x_token: str | None = Header(default=None)):
                       max(proveedor_tejeduria) as nombre
                  from guia_os
                 where orden is not null and orden <> ''
+                  and not exists (select 1 from suborden_estado se
+                                   where upper(se.suborden) = upper(guia_os.suborden)
+                                     and coalesce(se.observada, 0) <> 0)
                 group by 1
                having count(*) filter (where coalesce(estado_actual,'') <> 'Cerrado') > 0
                 order by 1"""
