@@ -562,15 +562,16 @@
     width:78px; height:7px; position:relative;
     background:#E7EDF5; border-radius:999px; overflow:hidden;
   }
-  /* Dos tonos: rojo = verificado por MECSA (despachado); claro = lo que el
-     taller reporta y aun no se verifica. Al verificarse, pasa al rojo solo. */
+  /* Dos tonos: rojo = verificado por MECSA (despachado); ambar = lo que el
+     taller reporta y aun esta pendiente de verificar (mismo color del estado
+     "En proceso"). Al verificarse el envio, ese tramo pasa al rojo solo. */
   .progress-fill{
     position:absolute; left:0; top:0; bottom:0;
     background: linear-gradient(90deg, var(--red), #F87171);
     border-radius:999px; transition:width .3s ease;
   }
   .progress-fill.rep{
-    background:#F6BDC3; border-radius:0 999px 999px 0;
+    background:var(--amber); border-radius:0 999px 999px 0;
     transition:left .3s ease, width .3s ease;
   }
   .progress-pct{
@@ -1671,7 +1672,7 @@ function renderTable() {
             <div class="progress-fill rep" style="left:${pct}%;width:${Math.max(0, pctT - pct)}%"></div>
             <div class="progress-fill" style="width:${pct}%"></div>
           </div>
-          <span class="progress-pct" title="Verificado por MECSA ${pct}% · reportado por enviar ${Math.max(0, pctT - pct)}%">${pctT}%</span>
+          <span class="progress-pct" title="Verificado por MECSA ${pct}% · reportado, pendiente de verificar ${Math.max(0, pctT - pct)}%">${pctT}%</span>
         </td>
         <td data-label="Estado">
           <span class="estado-badge ${est.cls}">${est.txt}</span>
@@ -1773,7 +1774,7 @@ function attachRowHandlers() {
       const lbl = tr.querySelector(".progress-pct");
       if (lbl) {
         lbl.textContent = pctT + "%";
-        lbl.title = `Verificado por MECSA ${pctD}% · reportado por enviar ${Math.max(0, pctT - pctD)}%`;
+        lbl.title = `Verificado por MECSA ${pctD}% · reportado, pendiente de verificar ${Math.max(0, pctT - pctD)}%`;
       }
       tr.classList.add("row-dirty");
       renderStats();   // el contador "Por completar" baja al ir llenando
