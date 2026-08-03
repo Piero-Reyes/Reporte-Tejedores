@@ -303,10 +303,9 @@
   }
   .fecha-liq-input:focus, .fecha-ini-input:focus{ outline:none; border-color:var(--red);
     box-shadow:0 0 0 3px rgba(225,29,46,.14); }
-  .solo-lectura .fecha-liq-input, .solo-lectura .fecha-ini-input{
-    border-color:transparent; background:transparent; padding-left:0;
-    color:var(--ink); pointer-events:none;
-  }
+  /* El admin SI puede editar Fecha inicio y Fecha liquidacion (con "Guardar
+     fechas"); por eso estos inputs NO llevan la clase .stock-input y no se
+     atenuan en modo solo-lectura, a diferencia de rollos/peso/terminada. */
 
   /* ---------------------------------------------------------- */
   /* PESTANAS                                                    */
@@ -808,7 +807,7 @@
         No tienes subórdenes asignadas por el momento.
       </div>
       <div class="table-foot" id="table-foot">
-        <div class="foot-info">
+        <div class="foot-info" id="foot-info">
           Reporte <span class="mono" id="vez-num">—</span> ·
           <span id="foot-hint">Se envía todo junto, en un solo reporte.</span>
         </div>
@@ -1136,10 +1135,13 @@ function pintarPortal(r) {
 function aplicarModoLectura(activo) {
   const dash = document.getElementById("dashboard");
   dash.classList.toggle("solo-lectura", activo);
-  document.getElementById("table-foot").style.display = activo ? "none" : "flex";
+  // El pie queda visible siempre: el admin no reporta stock, pero SI puede
+  // guardar fechas, asi que solo se oculta "Enviar reporte" y el texto del
+  // numero de reporte (no le aplican a su visor).
+  document.getElementById("table-foot").style.display = "flex";
+  document.getElementById("enviar-btn").style.display = activo ? "none" : "";
+  document.getElementById("foot-info").style.display = activo ? "none" : "";
   document.querySelectorAll("#table-body .stock-input").forEach(i => { i.readOnly = activo; });
-  // El date-picker ignora readOnly en varios navegadores: se deshabilita del todo.
-  document.querySelectorAll("#table-body .fecha-liq-input, #table-body .fecha-ini-input").forEach(i => { i.disabled = activo; });
   document.querySelectorAll("#table-body .estado-check").forEach(c => { c.disabled = activo; });
 }
 
@@ -1666,7 +1668,7 @@ function renderTable() {
         <td class="num-cell" data-label="Programado (kg)">${formatKg(row.programado)}</td>
         <td class="num-cell" data-label="Despachado (kg)">${formatKg(row.despachado)}</td>
         <td data-label="Fecha inicio">
-          <input type="date" class="stock-input fecha-ini-input"
+          <input type="date" class="fecha-ini-input"
                  value="${esc(e.fecha_inicio ?? "")}" data-init="${esc(e.fecha_inicio ?? "")}"
                  title="Fecha real de inicio. Llega pre-llenada con la fecha en que recibiste la mercadería; corrígela si empezaste otro día.">
         </td>
@@ -1689,7 +1691,7 @@ function renderTable() {
           <span class="estado-badge ${est.cls}">${est.txt}</span>
         </td>
         <td data-label="Fecha liquidación">
-          <input type="date" class="stock-input fecha-liq-input"
+          <input type="date" class="fecha-liq-input"
                  value="${e.fecha_liquidacion ?? ""}" data-init="${esc(e.fecha_liquidacion ?? "")}">
         </td>
         <td data-label="Terminada">
@@ -1836,12 +1838,20 @@ document.getElementById("fechas-btn").addEventListener("click", async function (
   const btn = this;
   const filas = filasFechasCambiadas();
   if (!filas.length) return;
+  const esAdmin = ROL === "admin";
+  const tallerElegido = esAdmin ? document.getElementById("admin-taller").value : null;
+  if (esAdmin && !tallerElegido) { showToast("Elige un taller primero."); return; }
   btn.disabled = true;
   btn.textContent = "Guardando…";
   try {
-    const r = await api("api/fechas", { method: "POST", body: JSON.stringify({ filas }) });
+    const body = esAdmin ? { filas, taller: tallerElegido } : { filas };
+    const r = await api("api/fechas", { method: "POST", body: JSON.stringify(body) });
     showToast(`Fechas guardadas · ${r.filas} suborden${r.filas > 1 ? "es" : ""}`);
-    await cargarStock();   // re-render: los data-init quedan al dia y el boton se apaga
+    // re-render: los data-init quedan al dia y el boton se apaga.
+    // cargarStock() regresaria al admin al selector (sin taller); para el
+    // admin se recarga el mismo taller que tenia elegido.
+    if (esAdmin) await cargarTaller(tallerElegido);
+    else await cargarStock();
   } catch (err) {
     showToast("Error: " + err.message);
   } finally {

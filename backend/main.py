@@ -253,6 +253,9 @@ class FilaFechas(BaseModel):
 
 class FechasReq(BaseModel):
     filas: list[FilaFechas]
+    # Solo lo usa el admin (elige el taller en el selector); un tejedor
+    # siempre usa el suyo, tomado del token, y este campo se ignora.
+    taller: str | None = None
 
 
 class TejedorReq(BaseModel):
@@ -959,10 +962,18 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
 @app.post("/api/fechas")
 def post_fechas(req: FechasReq, x_token: str | None = Header(default=None)):
     """Guarda SOLO las fechas (inicio corregido / liquidacion), sin crear un
-    reporte: no genera `vez` ni dispara el correo a Mecsa. Para el tejedor que
-    entra unicamente a ajustar sus fechas."""
-    u = tejedor_desde_token(x_token)
-    taller = u["tejedor"]
+    reporte: no genera `vez` ni dispara el correo a Mecsa. La usan tanto el
+    tejedor (para su propio taller, del token) como el admin (para el taller
+    que tenga elegido en su visor)."""
+    u = usuario_desde_token(x_token)
+    if u["es_tejedor"] and u["tejedor"]:
+        taller = u["tejedor"]
+    elif u["es_admin"]:
+        if not req.taller:
+            raise HTTPException(400, "Falta indicar el taller.")
+        taller = req.taller.strip().upper()
+    else:
+        raise HTTPException(403, "Este usuario no tiene acceso.")
 
     if not req.filas:
         raise HTTPException(400, "No hay fechas que guardar.")
