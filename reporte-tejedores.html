@@ -580,6 +580,23 @@
   input[type="checkbox"].estado-check{
     width:17px; height:17px; accent-color:var(--red); cursor:pointer;
   }
+  /* "Terminada" ya no es la ultima columna (ahora le sigue el saldo), asi que
+     pierde el centrado de td:last-child; se lo devolvemos explicito. */
+  .check-cell{ text-align:center; }
+
+  /* ---- Saldo de hilo ("puchos" que quedan en los conos) ----
+     Va pegado a la casilla "Terminada" porque se declara en el mismo momento.
+     Es OPCIONAL: vacio significa "no declaro", no cero. Solo se habilita al
+     marcar terminada; al desmarcar se oculta pero NO se borra lo escrito. */
+  .saldo-cell{ text-align:center; }
+  .saldo-input{ width:96px; }
+  .saldo-input[hidden]{ display:none; }
+  /* Un guion en gris ocupa el lugar del campo mientras la suborden no este
+     terminada: sin esto la columna se ve rota (celdas vacias sin explicacion). */
+  .saldo-off{ color:var(--muted-soft); font-size:13px; }
+  .saldo-off[hidden]{ display:none; }
+  /* Toda la columna desaparece si la base todavia no tiene saldo_suborden. */
+  .sin-saldo .col-saldo, .sin-saldo .saldo-cell{ display:none; }
 
   .table-foot{
     display:flex;
@@ -796,6 +813,8 @@
               <th>Estado</th>
               <th>Liquidación</th>
               <th>Terminada</th>
+              <th class="col-saldo"
+                  title="Hilo aprovechable que te queda en los conos al terminar la suborden. Es opcional y es solo un registro: no cambia tu avance ni ningún otro número de esta pantalla.">Saldo de hilo (kg)</th>
             </tr>
           </thead>
           <tbody id="table-body">
@@ -902,7 +921,8 @@
 let TOKEN = sessionStorage.getItem("tejedor_token") || sessionStorage.getItem("admin_token") || null;
 let ROL = null;        // "tejedor" | "admin" — lo dice /api/stock
 let FILAS = [];        // ultimo payload del server
-let ESTADO = {};       // subos -> {rollos, peso, finalizado} editado por el usuario
+let ESTADO = {};       // subos -> {rollos, peso, finalizado, saldo_hilo} editado por el usuario
+let SALDO_ACTIVO = false;  // hay tabla saldo_suborden en la base (lo dice /api/stock)
 let ENTREGAS = [];     // serie mensual [{mes, mecsa, guia, n}] para el grafico
 
 /* ------------------------------------------------------------------ */
@@ -1044,7 +1064,7 @@ async function entrar() {
 
 async function cargarStock() {
   const tbody = document.getElementById("table-body");
-  tbody.innerHTML = `<tr><td colspan="14" style="padding:28px;text-align:center;color:var(--muted-soft)">Cargando…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="15" style="padding:28px;text-align:center;color:var(--muted-soft)">Cargando…</td></tr>`;
 
   let r;
   try {
@@ -1081,7 +1101,7 @@ function prepararAdmin(talleres) {
 
   // estado inicial: aun sin taller elegido
   document.getElementById("table-body").innerHTML =
-    `<tr><td colspan="14" style="padding:32px;text-align:center;color:var(--muted-soft)">Elige un taller arriba para ver su avance.</td></tr>`;
+    `<tr><td colspan="15" style="padding:32px;text-align:center;color:var(--muted-soft)">Elige un taller arriba para ver su avance.</td></tr>`;
   document.getElementById("table-foot").style.display = "none";
   document.getElementById("kpi-row").innerHTML = "";
   document.getElementById("avance-body").innerHTML = "";
@@ -1112,11 +1132,21 @@ function pintarPortal(r) {
     // Mecsa monitorea, no un conteo diario.
     ESTADO[f.subos] = esAdmin
       ? { rollos: f.rollos, peso: f.peso, finalizado: !!f.finalizado, fecha_liquidacion: f.fecha_liquidacion ?? null,
-          fecha_inicio: f.fecha_inicio_taller ?? f.fecha_inicio ?? null }
+          fecha_inicio: f.fecha_inicio_taller ?? f.fecha_inicio ?? null,
+          saldo_hilo: f.saldo_hilo ?? null }
       : { rollos: null, peso: null, finalizado: !!f.finalizado, fecha_liquidacion: f.fecha_liquidacion ?? null,
           // Inicio efectivo: la fecha corregida por el taller manda; si no hay, la de llegada.
-          fecha_inicio: f.fecha_inicio_taller ?? f.fecha_inicio ?? null };
+          fecha_inicio: f.fecha_inicio_taller ?? f.fecha_inicio ?? null,
+          // El saldo declarado SI se pre-carga (como finalizado): no es un conteo
+          // del dia sino una declaracion vigente, y el tejedor tiene que poder
+          // verla para corregirla. null = todavia no declaro nada.
+          saldo_hilo: f.saldo_hilo ?? null };
   });
+
+  // Sin tabla saldo_suborden en la base, la columna entera se oculta: mejor no
+  // mostrarla que ofrecer un campo que fallaria al guardar (se acuerda con Mecsa).
+  SALDO_ACTIVO = r.saldoActivo !== false;
+  document.getElementById("dashboard").classList.toggle("sin-saldo", !SALDO_ACTIVO);
 
   if (esAdmin) {
     document.getElementById("tejedor-name").textContent = r.nombreTaller || r.taller;
@@ -1694,12 +1724,22 @@ function renderTable() {
           <input type="date" class="fecha-liq-input"
                  value="${e.fecha_liquidacion ?? ""}" data-init="${esc(e.fecha_liquidacion ?? "")}">
         </td>
-        <td data-label="Terminada">
+        <td class="check-cell" data-label="Terminada">
           <input type="checkbox" class="estado-check" ${e.finalizado ? "checked" : ""}>
+        </td>
+        <td class="saldo-cell" data-label="Saldo de hilo (kg)">
+          <input type="number" min="0" step="0.01"
+                 class="stock-input saldo-input" ${e.finalizado ? "" : "hidden"}
+                 value="${e.saldo_hilo ?? ""}" data-init="${e.saldo_hilo ?? ""}"
+                 placeholder="Opcional"
+                 aria-label="Saldo de hilo en kg de la suborden ${esc(row.subos)}"
+                 title="Hilo aprovechable que te queda en los conos, en kg. Opcional: si lo dejas en blanco, no se declara nada.">
+          <span class="saldo-off" ${e.finalizado ? "hidden" : ""}
+                title="Se habilita al marcar la suborden como terminada.">—</span>
         </td>
       </tr>
       <tr class="detalle-row" data-detalle="${esc(row.subos)}" hidden>
-        <td colspan="14">${renderGuias(row)}</td>
+        <td colspan="15">${renderGuias(row)}</td>
       </tr>
     `;
   }).join("");
@@ -1761,6 +1801,8 @@ function attachRowHandlers() {
     const estadoCheck = tr.querySelector(".estado-check");
     const fechaLiqInput = tr.querySelector(".fecha-liq-input");
     const fechaIniInput = tr.querySelector(".fecha-ini-input");
+    const saldoInput  = tr.querySelector(".saldo-input");
+    const saldoOff    = tr.querySelector(".saldo-off");
     const badge       = tr.querySelector(".estado-badge");
     const caret       = tr.querySelector(".caret");
     const rowData     = FILAS.find(x => x.subos === subos) || {};
@@ -1772,6 +1814,9 @@ function attachRowHandlers() {
         finalizado: estadoCheck ? estadoCheck.checked : !!(ESTADO[subos] && ESTADO[subos].finalizado),
         fecha_liquidacion: fechaLiqInput.value || null,
         fecha_inicio: fechaIniInput ? (fechaIniInput.value || null) : null,
+        // Se lee del input aunque este oculto: desmarcar "terminada" esconde el
+        // campo, NO borra lo que el tejedor ya habia declarado.
+        saldo_hilo: (saldoInput && saldoInput.value !== "") ? Number(saldoInput.value) : null,
       };
       // El Estado es derivado: se recalcula en vivo al teclear kg o marcar la casilla.
       if (badge) {
@@ -1795,11 +1840,44 @@ function attachRowHandlers() {
       actualizarBtnFechas();
     }
 
+    // El saldo solo tiene sentido cuando la suborden esta terminada: el campo
+    // aparece al marcar la casilla y se esconde al desmarcarla, sin perder lo
+    // escrito (queda en el value del input y en ESTADO).
+    function sincronizarSaldo() {
+      if (!saldoInput) return;
+      const on = !!(estadoCheck && estadoCheck.checked);
+      saldoInput.hidden = !on;
+      if (saldoOff) saldoOff.hidden = on;
+    }
+
     if (rollosInput) rollosInput.addEventListener("input", marcar);
     if (pesoInput) pesoInput.addEventListener("input", marcar);
-    if (estadoCheck) estadoCheck.addEventListener("change", marcar);
+    if (estadoCheck) estadoCheck.addEventListener("change", () => { sincronizarSaldo(); marcar(); });
     if (fechaLiqInput) fechaLiqInput.addEventListener("input", marcar);
     if (fechaIniInput) fechaIniInput.addEventListener("input", marcar);
+    if (saldoInput) {
+      saldoInput.addEventListener("input", marcar);
+      // Las revisiones van en "change" (al salir del campo), no en cada tecla:
+      // escribir "40" pasa por "4" y no tiene sentido opinar a medio numero.
+      saldoInput.addEventListener("change", () => {
+        const v = saldoInput.value === "" ? null : Number(saldoInput.value);
+        if (v != null && (!Number.isFinite(v) || v < 0)) {
+          showToast("El saldo de hilo no puede ser negativo.");
+          saldoInput.value = saldoInput.dataset.init || "";
+          marcar();
+          return;
+        }
+        marcar();
+        // Aviso por dedazo (400 en vez de 40). Es SOLO un aviso: un taller puede
+        // reciclar saldos de varias subordenes y cargarlos todos en una, y eso
+        // es valido. Nunca bloquea el envio.
+        const prog = Number(rowData.programado) || 0;
+        if (v != null && prog > 0 && v > prog * 0.20) {
+          showToast(`¿Seguro? Declaras ${formatKg(v)} kg de saldo sobre ${formatKg(prog)} kg programados. `
+                    + "Si es correcto, continúa.");
+        }
+      });
+    }
 
     if (caret) {
       caret.addEventListener("click", () => {
@@ -1860,8 +1938,26 @@ document.getElementById("fechas-btn").addEventListener("click", async function (
   }
 });
 
+/* Saldos de hilo que CAMBIARON respecto a lo declarado. Solo esos viajan: si se
+   mandara el saldo vigente en cada reporte, `declarado_en` dejaria de significar
+   "cuando lo declaro" y pasaria a ser la fecha del ultimo envio. */
+function saldosCambiados() {
+  const out = {};
+  document.querySelectorAll("#table-body tr[data-subos] .saldo-input").forEach(inp => {
+    if (inp.value === (inp.dataset.init || "")) return;
+    const v = inp.value === "" ? null : Number(inp.value);
+    // Vaciar el campo no retira la declaracion (no se borran filas): para eso el
+    // tejedor escribe 0, y asi queda constancia de que declaro.
+    if (v == null || !Number.isFinite(v) || v < 0) return;
+    out[inp.closest("tr").dataset.subos] = v;
+  });
+  return out;
+}
+
 document.getElementById("enviar-btn").addEventListener("click", async function () {
   const btn = this;
+
+  const saldos = saldosCambiados();
 
   // Las cerradas por el admin ya no se reportan: no aparecen en la vista del tejedor.
   const filas = FILAS.filter(f => !f.cerrada).map(f => ({
@@ -1871,15 +1967,19 @@ document.getElementById("enviar-btn").addEventListener("click", async function (
     finalizado: ESTADO[f.subos].finalizado,
     fecha_liquidacion: ESTADO[f.subos].fecha_liquidacion,
     fecha_inicio: ESTADO[f.subos].fecha_inicio,
+    // null (lo normal) = "no declaro nada nuevo": el backend no toca su fila.
+    saldo_hilo: f.subos in saldos ? saldos[f.subos] : null,
   }));
 
+  const nSaldos = Object.keys(saldos).length;
   const conDatos = filas.filter(f =>
     f.rollos != null || f.peso != null || f.finalizado || f.fecha_liquidacion);
-  if (conDatos.length === 0) {
+  if (conDatos.length === 0 && nSaldos === 0) {
     showToast("No hay nada que reportar todavía.");
     return;
   }
-  if (!confirm(`Vas a enviar el reporte de ${filas.length} subórdenes. ¿Confirmas?`)) return;
+  const extra = nSaldos ? `\nIncluye ${nSaldos} declaración(es) de saldo de hilo.` : "";
+  if (!confirm(`Vas a enviar el reporte de ${filas.length} subórdenes.${extra} ¿Confirmas?`)) return;
 
   btn.disabled = true;
   btn.textContent = "Enviando…";
@@ -1888,7 +1988,8 @@ document.getElementById("enviar-btn").addEventListener("click", async function (
       method: "POST",
       body: JSON.stringify({ filas }),
     });
-    showToast(`Reporte #${r.vez} enviado · ${r.filas} subórdenes`);
+    showToast(`Reporte #${r.vez} enviado · ${r.filas} subórdenes`
+              + (r.saldos ? ` · ${r.saldos} saldo(s) de hilo` : ""));
     await cargarStock();
   } catch (err) {
     showToast("Error: " + err.message);
