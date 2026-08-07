@@ -451,9 +451,6 @@
   /* Va suelta a la DERECHA de los indicadores (margin-left:auto) y en ambar,
      para que se lea como una accion y no como un indicador mas. El dato es por
      OS, no por suborden: por eso no vive en la tabla, que es por suborden. */
-  /* La tarjeta es un <button> y el panel un <div> HERMANO, no anidado: un
-     <select> dentro de un <button> es HTML invalido y el teclado se rompe. */
-  .saldo-wrap{ position:relative; }
   .saldo-card{
     display:flex; align-items:center; gap:12px;
     background:var(--amber-soft);
@@ -475,47 +472,75 @@
     font-size:11px; text-transform:uppercase; letter-spacing:.07em;
     color:#B45309; margin-top:2px; font-weight:700;
   }
-  /* El estado del autoguardado. Sin esto el usuario no sabe si lo que escribio
-     quedo guardado: no hay boton que pulsar. */
   .saldo-card .hint{ font-size:11px; color:#B45309; margin-top:3px; font-weight:500; }
 
-  /* Panel emergente: cuelga de la tarjeta, alineado a la derecha para que no se
-     salga por el borde de la pantalla. */
-  .saldo-pop{
-    position:absolute; top:calc(100% + 8px); right:0; z-index:60;
-    width:380px; max-width:92vw;
+  /* ---- Ventana modal del saldo ----
+     Centrada en pantalla, con fondo propio. Antes colgaba de la tarjeta y tapaba
+     las primeras filas de la tabla, que es justo donde estan las casillas de
+     "terminada" que hay que marcar para que una OS aparezca en el desplegable. */
+  .modal-fondo{
+    position:fixed; inset:0; z-index:200;
+    background:rgba(15,23,42,.45);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .modal-fondo[hidden]{ display:none; }
+  .modal{
     background:var(--card); color:var(--ink);
-    border:1px solid var(--line); border-radius:var(--radius);
-    box-shadow:var(--shadow-lg);
-    padding:18px; cursor:default;
-    text-align:left;
+    border-radius:var(--radius); box-shadow:var(--shadow-lg);
+    width:440px; max-width:100%;
+    /* Si el taller acumula muchas OS declaradas, scrollea la ventana, no la pagina. */
+    max-height:88vh; display:flex; flex-direction:column;
   }
-  .saldo-pop[hidden]{ display:none; }
-  .saldo-pop h4{
-    margin:0 0 4px; font-size:15px; font-family:'Poppins',sans-serif; font-weight:600;
+  .modal-cab{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 20px 0;
   }
-  .saldo-pop .sub{ font-size:12.5px; color:var(--muted); margin:0 0 14px; line-height:1.45; }
-  .saldo-pop label{
+  .modal-cab h3{
+    margin:0; font-size:17px; font-family:'Poppins',sans-serif; font-weight:600;
+  }
+  .modal-x{
+    appearance:none; background:transparent; border:none; cursor:pointer;
+    font-size:26px; line-height:1; color:var(--muted-soft); padding:0 4px;
+  }
+  .modal-x:hover{ color:var(--ink); }
+  .modal-cuerpo{ padding:12px 20px 4px; overflow-y:auto; }
+  .modal-pie{
+    display:flex; justify-content:flex-end; gap:10px;
+    padding:16px 20px 18px; border-top:1px solid var(--line); margin-top:14px;
+  }
+  .btn-sec{
+    background:#fff; color:var(--navy); border:1.5px solid var(--steel);
+    padding:11px 20px; font-size:14px;
+  }
+  .btn-guardar{
+    background:var(--red); color:#fff; padding:11px 26px; font-size:14px;
+    box-shadow:0 6px 18px -8px rgba(225,29,46,.55);
+  }
+  .btn-guardar:hover:not(:disabled){ background:var(--red-dark); }
+  .btn-guardar:disabled{ background:#CBD5E1; cursor:not-allowed; box-shadow:none; }
+
+  .modal .sub{ font-size:12.5px; color:var(--muted); margin:0 0 15px; line-height:1.45; }
+  .modal label{
     display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em;
     color:var(--muted); font-weight:700; margin-bottom:5px;
   }
-  .saldo-pop select, .saldo-pop .kg-input{
-    width:100%; padding:9px 10px; border-radius:9px; border:1.5px solid var(--line);
-    background:#FBFCFE; font-family:inherit; font-size:14px; color:var(--ink);
+  .modal select, .modal .kg-input{
+    width:100%; padding:10px 11px; border-radius:9px; border:1.5px solid var(--line);
+    background:#FBFCFE; font-family:inherit; font-size:14.5px; color:var(--ink);
   }
-  .saldo-pop select:focus, .saldo-pop .kg-input:focus{
+  .modal select:focus, .modal .kg-input:focus{
     outline:none; border-color:var(--amber); box-shadow:0 0 0 3px rgba(245,158,11,.18);
   }
-  .saldo-pop .campo{ margin-bottom:13px; }
-  .saldo-pop .campo:last-of-type{ margin-bottom:0; }
-  .saldo-pop .aviso{
+  .modal .campo{ margin-bottom:14px; }
+  .modal .aviso{
     font-size:12.5px; line-height:1.45; margin-top:9px;
     background:var(--amber-soft); border-left:3px solid var(--amber);
     padding:8px 10px; border-radius:6px; color:#92400E;
   }
-  .saldo-pop .aviso[hidden]{ display:none; }
-  .saldo-pop .vacio{
-    font-size:13px; color:var(--muted-soft); text-align:center; padding:14px 0; line-height:1.5;
+  .modal .aviso[hidden]{ display:none; }
+  .modal .vacio{
+    font-size:13px; color:var(--muted-soft); text-align:center; padding:16px 0; line-height:1.5;
   }
   /* Lo ya declarado, para que el taller vea de un vistazo que cargo. */
   .saldo-lista{ margin-top:15px; border-top:1px solid var(--line); padding-top:11px; }
@@ -529,6 +554,12 @@
   }
   .saldo-lista .item b{ font-weight:600; }
   .saldo-lista .item .kg{ font-variant-numeric:tabular-nums; color:var(--muted); }
+  /* Lo escrito y todavia sin guardar: hay que poder distinguirlo de lo que ya
+     esta en la base, o el taller creera que guardo algo que no guardo. */
+  .saldo-lista .pend{
+    font-style:normal; font-size:11px; font-weight:700; color:#B45309;
+    background:var(--amber-soft); border-radius:5px; padding:1px 6px; margin-left:6px;
+  }
 
   .table-card{
     background:var(--card);
@@ -977,6 +1008,19 @@
   </div>
 </div>
 
+<!-- Ventana de saldo de hilo. Vive al final del body, no dentro de la tarjeta:
+     centrada en pantalla no debe depender del sitio ni del overflow del padre. -->
+<div class="modal-fondo" id="saldo-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="saldo-tit">
+    <div class="modal-cab">
+      <h3 id="saldo-tit">Saldo de hilo</h3>
+      <button type="button" class="modal-x" id="saldo-cerrar" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-cuerpo" id="saldo-cuerpo"></div>
+    <div class="modal-pie" id="saldo-pie"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1303,82 +1347,100 @@ function renderSaldoCard() {
   const n = Object.keys(SALDOS).length;
   const kg = Object.values(SALDOS).reduce((a, b) => a + (Number(b) || 0), 0);
   slot.innerHTML = `
-    <div class="saldo-wrap" id="saldo-wrap">
-      <button type="button" class="saldo-card" id="saldo-card"
-              aria-haspopup="dialog" aria-expanded="false" aria-controls="saldo-pop"
-              title="Declara los kg de hilo que te sobraron en los conos, por OS.">
-        <span>
-          ${n ? `<span class="num mono">${formatKg(kg)}</span>` : ""}
-          <span class="lbl">Saldo de hilo (kg)</span>
-          <span class="hint" id="saldo-hint">${n ? `${n} OS declarada${n > 1 ? "s" : ""} · toca para editar`
-                                                 : "Toca para declarar"}</span>
-        </span>
-      </button>
-      <div class="saldo-pop" id="saldo-pop" role="dialog"
-           aria-label="Declarar saldo de hilo por OS" hidden></div>
-    </div>`;
-  document.getElementById("saldo-card").addEventListener("click", () => toggleSaldoPop());
+    <button type="button" class="saldo-card" id="saldo-card"
+            aria-haspopup="dialog" aria-controls="saldo-modal"
+            title="Declara los kg de hilo que te sobraron en los conos, por OS.">
+      <span>
+        ${n ? `<span class="num mono">${formatKg(kg)}</span>` : ""}
+        <span class="lbl">Saldo de hilo (kg)</span>
+        <span class="hint" id="saldo-hint">${n ? `${n} OS declarada${n > 1 ? "s" : ""} · toca para editar`
+                                               : "Toca para declarar"}</span>
+      </span>
+    </button>`;
+  document.getElementById("saldo-card").addEventListener("click", abrirSaldoModal);
 }
 
-/* Repinta la tarjeta cuando cambia lo que hay que mostrar (marcaron una casilla).
-   Si el panel estaba abierto, lo deja abierto y en la misma OS. */
+/* Repinta la tarjeta cuando cambia el conjunto de OS elegibles (marcaron o
+   desmarcaron una casilla). Si la ventana estaba abierta, refresca su
+   desplegable sin perder lo que el usuario tenga escrito sin guardar. */
 function renderSaldos() {
-  const abierto = saldoPopAbierto();
-  const os = abierto ? (document.getElementById("saldo-os") || {}).value : null;
+  const abierta = saldoModalAbierto();
+  const os = abierta ? (document.getElementById("saldo-os") || {}).value : null;
   renderSaldoCard();
-  if (abierto) abrirSaldoPop(os);
+  if (abierta) pintarSaldoModal(os);
 }
 
-function saldoPopAbierto() {
-  const p = document.getElementById("saldo-pop");
-  return !!p && !p.hidden;
+/* ---- ventana modal ----
+   Centrada y con fondo propio, no colgada de la tarjeta: el panel anclado tapaba
+   las primeras filas de la tabla, que es justo donde estan las casillas de
+   "terminada" que hay que marcar para que una OS aparezca en el desplegable.
+
+   El guardado es EXPLICITO, con boton. Los cambios se acumulan en PENDIENTES y
+   viajan todos juntos en una sola peticion al pulsar Guardar; asi se puede
+   cargar varias OS de una sentada y nada se escribe en la base hasta que el
+   taller lo decide. */
+let PENDIENTES = {};      // OS -> kg escritos y todavia sin guardar
+
+function saldoModalAbierto() {
+  const m = document.getElementById("saldo-modal");
+  return !!m && !m.hidden;
 }
 
-function toggleSaldoPop() {
-  if (saldoPopAbierto()) cerrarSaldoPop(); else abrirSaldoPop();
+function abrirSaldoModal() {
+  const m = document.getElementById("saldo-modal");
+  if (!m) return;
+  PENDIENTES = {};
+  pintarSaldoModal();
+  m.hidden = false;
+  // Bloquea el scroll del fondo: si no, la rueda mueve la tabla de atras y la
+  // ventana parece despegarse.
+  document.body.style.overflow = "hidden";
+  const sel = document.getElementById("saldo-os");
+  (sel || document.getElementById("saldo-cerrar"))?.focus();
 }
 
-function cerrarSaldoPop() {
-  const p = document.getElementById("saldo-pop");
-  const c = document.getElementById("saldo-card");
-  if (p) p.hidden = true;
-  if (c) c.setAttribute("aria-expanded", "false");
+function cerrarSaldoModal(forzar = false) {
+  const m = document.getElementById("saldo-modal");
+  if (!m || m.hidden) return;
+  const n = Object.keys(PENDIENTES).length;
+  if (!forzar && n && !confirm(
+      `Tienes ${n} cambio(s) sin guardar. Si cierras se pierden. ¿Cerrar igual?`)) return;
+  PENDIENTES = {};
+  m.hidden = true;
+  document.body.style.overflow = "";
+  document.getElementById("saldo-card")?.focus();
 }
 
-/* Pinta el panel. `osPre` deja seleccionada una OS concreta (al repintar). */
-function abrirSaldoPop(osPre = null) {
-  const pop = document.getElementById("saldo-pop");
-  const card = document.getElementById("saldo-card");
-  if (!pop) return;
+/* `osPre` deja seleccionada una OS concreta (al refrescar sin cerrar). */
+function pintarSaldoModal(osPre = null) {
+  const cuerpo = document.getElementById("saldo-cuerpo");
+  const pie = document.getElementById("saldo-pie");
+  if (!cuerpo) return;
 
   const elegibles = osElegibles();
-  const declaradas = Object.keys(SALDOS).sort();
 
-  const lista = declaradas.length ? `
-    <div class="saldo-lista">
-      <div class="tit">Ya declarado</div>
-      ${declaradas.map(os => `<div class="item"><b>${esc(os)}</b>
-        <span class="kg">${formatKg(SALDOS[os])} kg</span></div>`).join("")}
-    </div>` : "";
+  const lista = htmlListaSaldos();
 
   if (!elegibles.length) {
-    pop.innerHTML = `
-      <h4>Saldo de hilo</h4>
+    cuerpo.innerHTML = `
       <p class="sub">Los kg de hilo aprovechable que te quedaron en los conos, por OS.</p>
       <div class="vacio">Todavía no hay ninguna OS disponible.<br>
         Una OS aparece aquí cuando <b>todas</b> sus subórdenes están marcadas como terminadas.</div>
       ${lista}`;
+    pie.innerHTML = `<button type="button" class="btn btn-sec" id="saldo-cancelar">Cerrar</button>`;
   } else {
     const sel = osPre && elegibles.some(o => o.os === osPre) ? osPre : elegibles[0].os;
-    pop.innerHTML = `
-      <h4>Saldo de hilo</h4>
+    cuerpo.innerHTML = `
       <p class="sub">Los kg de hilo aprovechable que te quedaron en los conos, por OS.
-        Se guarda solo, mientras escribes.</p>
+        Elige la OS, escribe los kg y pulsa Guardar.</p>
       <div class="campo">
         <label for="saldo-os">Orden de servicio</label>
         <select id="saldo-os">
-          ${elegibles.map(o => `<option value="${esc(o.os)}" ${o.os === sel ? "selected" : ""}
-            >${esc(o.os)}${SALDOS[o.os] != null ? ` · ${formatKg(SALDOS[o.os])} kg declarados` : ""}</option>`).join("")}
+          ${elegibles.map(o => {
+            const kg = PENDIENTES[o.os] !== undefined ? PENDIENTES[o.os] : SALDOS[o.os];
+            return `<option value="${esc(o.os)}" ${o.os === sel ? "selected" : ""}
+              >${esc(o.os)}${kg != null ? ` · ${formatKg(kg)} kg` : ""}</option>`;
+          }).join("")}
         </select>
       </div>
       <div class="campo">
@@ -1388,17 +1450,98 @@ function abrirSaldoPop(osPre = null) {
       </div>
       <div class="aviso" id="saldo-aviso" hidden></div>
       ${lista}`;
+    pie.innerHTML = `
+      <button type="button" class="btn btn-sec" id="saldo-cancelar">Cancelar</button>
+      <button type="button" class="btn btn-guardar" id="saldo-guardar">Guardar</button>`;
 
-    const selOs = pop.querySelector("#saldo-os");
-    const inKg = pop.querySelector("#saldo-kg");
-    const cargar = () => { inKg.value = SALDOS[selOs.value] ?? ""; avisoSaldo(""); };
+    const selOs = cuerpo.querySelector("#saldo-os");
+    const inKg = cuerpo.querySelector("#saldo-kg");
+
+    // Al cambiar de OS se muestra lo pendiente si lo hay, si no lo ya guardado.
+    const cargar = () => {
+      const os = selOs.value;
+      const kg = PENDIENTES[os] !== undefined ? PENDIENTES[os] : SALDOS[os];
+      inKg.value = kg != null ? kg : "";
+      avisoSaldo("");
+    };
     cargar();
     selOs.addEventListener("change", cargar);
-    inKg.addEventListener("input", () => programarGuardadoSaldo(selOs.value, inKg));
+    inKg.addEventListener("input", () => anotarSaldo(selOs.value, inKg));
+    document.getElementById("saldo-guardar").addEventListener("click", guardarSaldos);
   }
 
-  pop.hidden = false;
-  if (card) card.setAttribute("aria-expanded", "true");
+  document.getElementById("saldo-cancelar").addEventListener("click", () => cerrarSaldoModal());
+  actualizarBtnSaldo();
+}
+
+/* Lo ya guardado, mas lo escrito y aun sin guardar (marcado como tal, para que
+   no se confunda con lo que ya esta en la base). */
+function htmlListaSaldos() {
+  const todas = [...new Set([...Object.keys(SALDOS), ...Object.keys(PENDIENTES)])].sort();
+  if (!todas.length) return "";
+  return `
+    <div class="saldo-lista">
+      <div class="tit">Declarado</div>
+      ${todas.map(os => {
+        const pend = PENDIENTES[os] !== undefined;
+        const kg = pend ? PENDIENTES[os] : SALDOS[os];
+        return `<div class="item"><b>${esc(os)}</b>
+          <span class="kg">${formatKg(kg)} kg${pend ? ' <em class="pend">sin guardar</em>' : ""}</span></div>`;
+      }).join("")}
+    </div>`;
+}
+
+/* Repinta SOLO la lista, no la ventana entera: repintarla mientras el usuario
+   escribe le robaria el foco del campo a media cifra. */
+function actualizarListaSaldos() {
+  const vieja = document.querySelector("#saldo-cuerpo .saldo-lista");
+  const html = htmlListaSaldos();
+  if (vieja) {
+    if (html) vieja.outerHTML = html; else vieja.remove();
+  } else if (html) {
+    document.getElementById("saldo-cuerpo")?.insertAdjacentHTML("beforeend", html);
+  }
+}
+
+/* Anota el valor escrito SIN mandarlo: solo valida y avisa. */
+function anotarSaldo(orden, input) {
+  const crudo = input.value.trim();
+  if (crudo === "") {            // vacio = no declara nada para esta OS
+    delete PENDIENTES[orden];
+    avisoSaldo("");
+    actualizarBtnSaldo();
+  actualizarListaSaldos();
+    return;
+  }
+
+  const kg = Number(crudo);
+  if (!Number.isFinite(kg) || kg < 0) {
+    delete PENDIENTES[orden];
+    avisoSaldo("El saldo no puede ser negativo. Escribe 0 si no te quedó nada.");
+    actualizarBtnSaldo();
+  actualizarListaSaldos();
+    return;
+  }
+
+  PENDIENTES[orden] = kg;
+
+  // Aviso por dedazo (400 en vez de 40): informa, nunca bloquea. Un taller puede
+  // reciclar los puchos de varias OS y cargarlos donde le convenga.
+  const info = osElegibles().find(o => o.os === orden);
+  const prog = info ? info.programado : 0;
+  avisoSaldo(prog > 0 && kg > prog * 0.20
+    ? `¿Seguro? Son ${formatKg(kg)} kg sobre ${formatKg(prog)} kg programados de ${orden}. Si es correcto, guárdalo así.`
+    : "");
+  actualizarBtnSaldo();
+  actualizarListaSaldos();
+}
+
+function actualizarBtnSaldo() {
+  const b = document.getElementById("saldo-guardar");
+  if (!b) return;
+  const n = Object.keys(PENDIENTES).length;
+  b.disabled = n === 0;
+  b.textContent = n > 1 ? `Guardar ${n} OS` : "Guardar";
 }
 
 function avisoSaldo(msg) {
@@ -1408,106 +1551,34 @@ function avisoSaldo(msg) {
   a.hidden = !msg;
 }
 
-function pistaSaldo(msg) {
-  const h = document.getElementById("saldo-hint");
-  if (h) h.textContent = msg;
-}
+async function guardarSaldos() {
+  const filas = Object.keys(PENDIENTES).map(orden => ({ orden, kg: PENDIENTES[orden] }));
+  if (!filas.length) return;
 
-/* ---- autoguardado ----
-   Se guarda solo, con un retardo desde la ultima tecla: escribir "40.50" son 5
-   pulsaciones y no tiene sentido mandar 5 peticiones. No hace falta un
-   WebSocket: no hay nada que el servidor tenga que empujar al navegador, solo
-   el navegador escribiendo. Y no puede colgar del reporte, porque cada envio de
-   reporte crea un `vez` y OC_Hilo lee el ultimo `vez` como el reporte completo:
-   autoguardar ahi generaria decenas de `vez` y rompería esa lectura. */
-let saldoTimer = null;
-let saldoVuelo = false;      // hay un guardado en curso
-let saldoPend = null;        // ultimo cambio llegado mientras se guardaba
-
-function programarGuardadoSaldo(orden, input) {
-  const crudo = input.value.trim();
-  if (crudo === "") { avisoSaldo(""); clearTimeout(saldoTimer); return; }  // vacio = no declara
-
-  const kg = Number(crudo);
-  if (!Number.isFinite(kg) || kg < 0) {
-    avisoSaldo("El saldo no puede ser negativo. Escribe 0 si no te quedó nada.");
-    clearTimeout(saldoTimer);
-    return;
-  }
-
-  // Aviso por dedazo (400 en vez de 40): informa, nunca bloquea. Un taller puede
-  // reciclar los puchos de varias OS y cargarlos donde le convenga.
-  const info = osElegibles().find(o => o.os === orden);
-  const prog = info ? info.programado : 0;
-  avisoSaldo(prog > 0 && kg > prog * 0.20
-    ? `¿Seguro? Son ${formatKg(kg)} kg sobre ${formatKg(prog)} kg programados de ${orden}. Si es correcto, déjalo así.`
-    : "");
-
-  clearTimeout(saldoTimer);
-  saldoTimer = setTimeout(() => guardarSaldo(orden, kg), 900);
-}
-
-async function guardarSaldo(orden, kg) {
-  // Un guardado a la vez: si el usuario sigue escribiendo, el ultimo valor
-  // queda en cola y se manda al terminar. Sin esto, dos respuestas fuera de
-  // orden pueden dejar guardado un valor viejo.
-  if (saldoVuelo) { saldoPend = { orden, kg }; return; }
-  saldoVuelo = true;
-  pistaSaldo("Guardando…");
+  const btn = document.getElementById("saldo-guardar");
+  btn.disabled = true;
+  btn.textContent = "Guardando…";
   try {
-    await api("api/saldos", { method: "POST", body: JSON.stringify({ filas: [{ orden, kg }] }) });
-    SALDOS[orden] = kg;
-    pistaSaldo("Guardado ✓");
-    actualizarResumenSaldo();
+    await api("api/saldos", { method: "POST", body: JSON.stringify({ filas }) });
+    filas.forEach(f => { SALDOS[f.orden] = f.kg; });
+    PENDIENTES = {};
+    showToast(`Saldo guardado · ${filas.length} OS`);
+    renderSaldoCard();
+    cerrarSaldoModal(true);
   } catch (err) {
-    pistaSaldo("No se guardó");
     showToast("No se pudo guardar el saldo: " + err.message);
-  } finally {
-    saldoVuelo = false;
-    if (saldoPend) {
-      const p = saldoPend; saldoPend = null;
-      guardarSaldo(p.orden, p.kg);
-    }
+    btn.disabled = false;
+    actualizarBtnSaldo();
   }
 }
 
-/* Actualiza el total y la lista SIN repintar el panel: repintarlo mientras el
-   usuario escribe le robaria el foco del campo. */
-function actualizarResumenSaldo() {
-  const n = Object.keys(SALDOS).length;
-  const kg = Object.values(SALDOS).reduce((a, b) => a + (Number(b) || 0), 0);
-  // Mientras no hay nada declarado la tarjeta muestra solo su titulo (sin cifra
-  // ni marcador de vacio); el total aparece con la primera declaracion, asi que
-  // aqui hay que crearlo si todavia no existe.
-  const num = document.querySelector("#saldo-card .num");
-  const lbl = document.querySelector("#saldo-card .lbl");
-  if (num) num.textContent = n ? formatKg(kg) : "";
-  else if (n && lbl) lbl.insertAdjacentHTML("beforebegin",
-    `<span class="num mono">${formatKg(kg)}</span>`);
-
-  const lista = document.querySelector(".saldo-lista");
-  const filas = Object.keys(SALDOS).sort().map(os =>
-    `<div class="item"><b>${esc(os)}</b><span class="kg">${formatKg(SALDOS[os])} kg</span></div>`).join("");
-  if (lista) {
-    lista.innerHTML = `<div class="tit">Ya declarado</div>${filas}`;
-  } else if (n) {
-    const pop = document.getElementById("saldo-pop");
-    if (pop) pop.insertAdjacentHTML("beforeend",
-      `<div class="saldo-lista"><div class="tit">Ya declarado</div>${filas}</div>`);
-  }
-}
-
-/* Cerrar el panel: clic fuera o Escape. */
-document.addEventListener("click", e => {
-  if (!saldoPopAbierto()) return;
-  if (e.target.closest("#saldo-wrap")) return;
-  cerrarSaldoPop();
+/* Cerrar: clic en el fondo o Escape. Un clic DENTRO de la ventana no cierra. */
+document.getElementById("saldo-modal").addEventListener("click", e => {
+  if (e.target.id === "saldo-modal") cerrarSaldoModal();
 });
+document.getElementById("saldo-cerrar").addEventListener("click", () => cerrarSaldoModal());
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && saldoPopAbierto()) {
-    cerrarSaldoPop();
-    document.getElementById("saldo-card")?.focus();
-  }
+  if (e.key === "Escape" && saldoModalAbierto()) cerrarSaldoModal();
 });
 
 /* ------------------------------------------------------------------ */

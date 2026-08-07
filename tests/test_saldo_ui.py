@@ -5,7 +5,7 @@
 
 El saldo se declara POR OS, no por suborden: Achorado 3.0 lo suma al total de
 cada OS. Por eso no vive en la tabla (que es por suborden) sino en una tarjeta
-con panel propio, y una OS solo se puede declarar cuando TODAS sus subordenes
+con ventana propia, y una OS solo se puede declarar cuando TODAS sus subordenes
 estan marcadas como terminadas.
 
 El backend va simulado A PROPOSITO. Estos son comportamientos del CLIENTE, y
@@ -134,11 +134,6 @@ with sync_playwright() as p:
         sel = pg.locator("#saldo-os")
         return sel.locator("option").all_text_contents() if sel.count() else []
 
-    def guardar_y_esperar(n_previos):
-        pg.wait_for_function(f"() => window.__n === undefined || true")
-        pg.wait_for_timeout(1400)      # 900ms de retardo + margen de red
-        return len(SALDOS_POST) > n_previos
-
     print("\n--- la tabla ya NO tiene columna de saldo ---")
     check("14 columnas en el encabezado",
           pg.locator("#table-body").page.locator("thead tr").first.locator("th").count() == 14,
@@ -151,10 +146,19 @@ with sync_playwright() as p:
     check("muestra el total ya declarado", "40.50" in pg.locator("#saldo-card .num").inner_text(),
           pg.locator("#saldo-card .num").inner_text())
 
-    print("\n--- el panel ---")
-    check("arranca cerrado", pg.locator("#saldo-pop").is_hidden())
+    print("\n--- la ventana ---")
+    check("arranca cerrada", pg.locator("#saldo-modal").is_hidden())
     pg.click("#saldo-card")
-    check("se abre al tocar la tarjeta", pg.locator("#saldo-pop").is_visible())
+    check("se abre al tocar la tarjeta", pg.locator("#saldo-modal").is_visible())
+    caja = pg.locator("#saldo-modal .modal").bounding_box()
+    vp = pg.viewport_size
+    centro_x = caja["x"] + caja["width"] / 2
+    centro_y = caja["y"] + caja["height"] / 2
+    check("esta centrada en pantalla",
+          abs(centro_x - vp["width"] / 2) < 12 and abs(centro_y - vp["height"] / 2) < 12,
+          f"centro=({centro_x:.0f},{centro_y:.0f}) pantalla=({vp['width']},{vp['height']})")
+    check("tiene boton de guardar", pg.locator("#saldo-guardar").count() == 1)
+    check("arranca deshabilitado (nada que guardar)", pg.locator("#saldo-guardar").is_disabled())
 
     print("\n--- solo aparecen OS con TODAS sus subordenes terminadas ---")
     ops = opciones()
@@ -163,8 +167,8 @@ with sync_playwright() as p:
           pg.locator("#saldo-kg").input_value())
 
     print("\n--- TRI1802 tiene DOS subordenes: con una no basta ---")
-    # El panel es flotante y tapa las primeras filas, asi que hay que cerrarlo
-    # para llegar a las casillas: es el mismo flujo que sigue una persona.
+    # La ventana es modal y bloquea la tabla, asi que hay que cerrarla para
+    # llegar a las casillas: es el mismo flujo que sigue una persona.
     def marcar(subos, valor=True):
         pg.keyboard.press("Escape")
         chk(subos).set_checked(valor)
@@ -185,61 +189,88 @@ with sync_playwright() as p:
           str(opciones()))
     marcar("TRI1802JLL135")
 
-    print("\n--- autoguardado: se guarda solo, sin pulsar nada ---")
+    print("\n--- NO se guarda solo: hay que pulsar el boton ---")
     SALDOS_POST.clear()
     pg.select_option("#saldo-os", "TRI1802")
     pg.fill("#saldo-kg", "150")
-    pg.wait_for_timeout(1400)
-    check("llego exactamente 1 guardado", len(SALDOS_POST) == 1, str(len(SALDOS_POST)))
+    pg.wait_for_timeout(1500)      # de sobra para el viejo autoguardado de 900ms
+    check("escribir NO manda nada", len(SALDOS_POST) == 0, str(len(SALDOS_POST)))
+    check("el boton se habilita", pg.locator("#saldo-guardar").is_enabled())
+    check("aparece marcado como sin guardar",
+          "sin guardar" in pg.locator(".saldo-lista").inner_text(),
+          pg.locator(".saldo-lista").inner_text().replace("\n", " | "))
+
+    pg.click("#saldo-guardar")
+    pg.wait_for_timeout(600)
+    check("al pulsar Guardar llega 1 peticion", len(SALDOS_POST) == 1, str(len(SALDOS_POST)))
     if SALDOS_POST:
         check("con la OS y los kg correctos",
               SALDOS_POST[0]["filas"] == [{"orden": "TRI1802", "kg": 150}],
               json.dumps(SALDOS_POST[0]["filas"]))
-    check("la tarjeta avisa que guardo", "Guardado" in pg.locator("#saldo-hint").inner_text(),
-          pg.locator("#saldo-hint").inner_text())
+    check("la ventana se cierra al guardar", pg.locator("#saldo-modal").is_hidden())
     check("y el total sube a 190.50", "190.50" in pg.locator("#saldo-card .num").inner_text(),
           pg.locator("#saldo-card .num").inner_text())
 
-    print("\n--- teclear no manda una peticion por tecla ---")
+    print("\n--- varias OS en un solo guardado ---")
     SALDOS_POST.clear()
-    pg.locator("#saldo-kg").fill("")
-    for c in "12345":
-        pg.locator("#saldo-kg").type(c, delay=60)
-    pg.wait_for_timeout(1400)
-    check("5 pulsaciones -> 1 sola peticion", len(SALDOS_POST) == 1, str(len(SALDOS_POST)))
+    pg.click("#saldo-card")
+    pg.select_option("#saldo-os", "TRI1801")
+    pg.fill("#saldo-kg", "10")
+    pg.select_option("#saldo-os", "TRI1802")
+    pg.fill("#saldo-kg", "20")
+    check("el boton cuenta las dos", "2" in pg.locator("#saldo-guardar").inner_text(),
+          pg.locator("#saldo-guardar").inner_text())
+    pg.click("#saldo-guardar")
+    pg.wait_for_timeout(600)
+    check("una sola peticion con las 2 OS",
+          len(SALDOS_POST) == 1 and len(SALDOS_POST[0]["filas"]) == 2,
+          json.dumps(SALDOS_POST[0]["filas"]) if SALDOS_POST else "nada")
 
-    print("\n--- negativo: se rechaza y NO se guarda ---")
+    print("\n--- al volver a abrir, conserva lo guardado ---")
+    pg.click("#saldo-card")
+    pg.select_option("#saldo-os", "TRI1801")
+    check("TRI1801 mantiene sus 10", pg.locator("#saldo-kg").input_value() == "10",
+          pg.locator("#saldo-kg").input_value())
+
+    print("\n--- negativo: se rechaza y no se puede guardar ---")
     SALDOS_POST.clear()
     pg.fill("#saldo-kg", "-5")
-    pg.wait_for_timeout(1400)
+    pg.wait_for_timeout(200)
     check("avisa", "negativo" in pg.locator("#saldo-aviso").inner_text().lower(),
           pg.locator("#saldo-aviso").inner_text())
-    check("no se mando nada", len(SALDOS_POST) == 0, str(len(SALDOS_POST)))
+    check("el boton queda deshabilitado", pg.locator("#saldo-guardar").is_disabled())
 
-    print("\n--- cifra desproporcionada: avisa pero SI guarda ---")
-    SALDOS_POST.clear()
-    pg.fill("#saldo-kg", "900")     # TRI1802 son 2 subordenes x 1000 = 2000; 20% = 400
-    pg.wait_for_timeout(1400)
+    print("\n--- cifra desproporcionada: avisa pero deja guardar ---")
+    pg.fill("#saldo-kg", "900")     # TRI1801 es 1 suborden x 1000; 20% = 200
+    pg.wait_for_timeout(200)
     check("sale el aviso '¿Seguro?'", "Seguro" in pg.locator("#saldo-aviso").inner_text(),
           pg.locator("#saldo-aviso").inner_text())
-    check("pero se guardo igual", len(SALDOS_POST) == 1, str(len(SALDOS_POST)))
+    check("y se puede guardar igual", pg.locator("#saldo-guardar").is_enabled())
 
     print("\n--- 0 es una declaracion valida, vacio no ---")
     SALDOS_POST.clear()
     pg.fill("#saldo-kg", "0")
-    pg.wait_for_timeout(1400)
-    check("0 se guarda", any(f["filas"][0]["kg"] == 0 for f in SALDOS_POST), str(SALDOS_POST))
-    SALDOS_POST.clear()
-    pg.fill("#saldo-kg", "")
-    pg.wait_for_timeout(1400)
-    check("vacio no manda nada", len(SALDOS_POST) == 0, str(len(SALDOS_POST)))
+    pg.wait_for_timeout(200)
+    check("0 habilita el guardado", pg.locator("#saldo-guardar").is_enabled())
+    pg.click("#saldo-guardar")
+    pg.wait_for_timeout(600)
+    check("y se manda como 0", SALDOS_POST and SALDOS_POST[0]["filas"][0]["kg"] == 0,
+          json.dumps(SALDOS_POST[0]["filas"]) if SALDOS_POST else "nada")
 
-    print("\n--- cerrar el panel ---")
-    pg.keyboard.press("Escape")
-    check("Escape lo cierra", pg.locator("#saldo-pop").is_hidden())
+    SALDOS_POST.clear()
     pg.click("#saldo-card")
-    pg.locator("#stats-row").click()
-    check("un clic fuera tambien", pg.locator("#saldo-pop").is_hidden())
+    pg.select_option("#saldo-os", "TRI1801")
+    pg.fill("#saldo-kg", "")
+    pg.wait_for_timeout(200)
+    check("vacio no deja guardar", pg.locator("#saldo-guardar").is_disabled())
+
+    print("\n--- cerrar la ventana ---")
+    pg.keyboard.press("Escape")
+    check("Escape la cierra", pg.locator("#saldo-modal").is_hidden())
+    pg.click("#saldo-card")
+    # Clic en el fondo oscuro, fuera de la caja blanca (esquina superior izquierda).
+    pg.mouse.click(5, 5)
+    check("un clic en el fondo tambien", pg.locator("#saldo-modal").is_hidden())
 
     print("\n--- el reporte ya no carga saldos ---")
     REPORTES.clear()
@@ -266,8 +297,11 @@ with sync_playwright() as p:
     pg.click("#saldo-card")
     pg.select_option("#saldo-os", "TRI1801")
     pg.fill("#saldo-kg", "25")
-    pg.wait_for_timeout(1400)
-    check("al declarar aparece el total", "25.00" in pg.locator("#saldo-card .num").inner_text(),
+    pg.click("#saldo-guardar")
+    pg.wait_for_timeout(600)
+    check("tras guardar aparece el total",
+          pg.locator("#saldo-card .num").count() == 1
+          and "25.00" in pg.locator("#saldo-card .num").inner_text(),
           pg.locator("#saldo-card .num").inner_text() if pg.locator("#saldo-card .num").count() else "(sin cifra)")
 
     print("\n--- errores de JavaScript ---")
