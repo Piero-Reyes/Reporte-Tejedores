@@ -252,6 +252,24 @@ with sync_playwright() as p:
               all("saldo_hilo" not in f for f in REPORTES[0]["filas"]),
               json.dumps(REPORTES[0]["filas"][0]))
 
+    print("\n--- taller sin nada declarado: la tarjeta muestra solo su titulo ---")
+    STOCK["saldosOs"] = []
+    pg.reload()
+    pg.wait_for_selector("#table-body tr[data-subos]")
+    check("no muestra ninguna cifra", pg.locator("#saldo-card .num").count() == 0)
+    # El CSS lo pone en mayusculas (text-transform), igual que los otros
+    # indicadores, asi que la comparacion va sin distinguir mayusculas.
+    check("si muestra el titulo",
+          "saldo de hilo (kg)" in pg.locator("#saldo-card .lbl").inner_text().lower(),
+          pg.locator("#saldo-card .lbl").inner_text())
+    SALDOS_POST.clear()
+    pg.click("#saldo-card")
+    pg.select_option("#saldo-os", "TRI1801")
+    pg.fill("#saldo-kg", "25")
+    pg.wait_for_timeout(1400)
+    check("al declarar aparece el total", "25.00" in pg.locator("#saldo-card .num").inner_text(),
+          pg.locator("#saldo-card .num").inner_text() if pg.locator("#saldo-card .num").count() else "(sin cifra)")
+
     print("\n--- errores de JavaScript ---")
     check("ninguno", not errores, "; ".join(errores[:3]))
 

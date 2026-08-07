@@ -468,7 +468,6 @@
   }
   .saldo-card:hover{ box-shadow:var(--shadow-lg); }
   .saldo-card:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
-  .saldo-card .ico{ font-size:20px; line-height:1; }
   .saldo-card .num{
     font-family:'Poppins',sans-serif; font-size:22px; font-weight:600; color:#92400E;
   }
@@ -1308,9 +1307,8 @@ function renderSaldoCard() {
       <button type="button" class="saldo-card" id="saldo-card"
               aria-haspopup="dialog" aria-expanded="false" aria-controls="saldo-pop"
               title="Declara los kg de hilo que te sobraron en los conos, por OS.">
-        <span class="ico" aria-hidden="true">🧶</span>
         <span>
-          <span class="num mono">${n ? formatKg(kg) : "—"}</span>
+          ${n ? `<span class="num mono">${formatKg(kg)}</span>` : ""}
           <span class="lbl">Saldo de hilo (kg)</span>
           <span class="hint" id="saldo-hint">${n ? `${n} OS declarada${n > 1 ? "s" : ""} · toca para editar`
                                                  : "Toca para declarar"}</span>
@@ -1478,8 +1476,14 @@ async function guardarSaldo(orden, kg) {
 function actualizarResumenSaldo() {
   const n = Object.keys(SALDOS).length;
   const kg = Object.values(SALDOS).reduce((a, b) => a + (Number(b) || 0), 0);
+  // Mientras no hay nada declarado la tarjeta muestra solo su titulo (sin cifra
+  // ni marcador de vacio); el total aparece con la primera declaracion, asi que
+  // aqui hay que crearlo si todavia no existe.
   const num = document.querySelector("#saldo-card .num");
-  if (num) num.textContent = n ? formatKg(kg) : "—";
+  const lbl = document.querySelector("#saldo-card .lbl");
+  if (num) num.textContent = n ? formatKg(kg) : "";
+  else if (n && lbl) lbl.insertAdjacentHTML("beforebegin",
+    `<span class="num mono">${formatKg(kg)}</span>`);
 
   const lista = document.querySelector(".saldo-lista");
   const filas = Object.keys(SALDOS).sort().map(os =>
