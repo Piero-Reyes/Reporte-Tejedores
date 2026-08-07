@@ -300,6 +300,25 @@ with sync_playwright() as p:
               all("saldo_hilo" not in f for f in REPORTES[0]["filas"]),
               json.dumps(REPORTES[0]["filas"][0]))
 
+    print("\n--- OS ya recogida por MECSA: se ve pero no se toca ---")
+    # Mecsa peso el hilo de TRI1801 y la merma de esa OS ya quedo calculada
+    # sobre esa cifra: cambiarla ahora dejaria dos numeros contradictorios.
+    STOCK["saldosOs"] = [{"orden": "TRI1801", "kg": 40.5, "recibido": True}]
+    pg.reload()
+    pg.wait_for_selector("#table-body tr[data-subos]")
+    pg.click("#saldo-card")
+    check("aparece marcada como recogida en la lista",
+          "recogido" in pg.locator(".saldo-lista").inner_text(),
+          pg.locator(".saldo-lista").inner_text().replace("\n", " | "))
+    pg.select_option("#saldo-os", "TRI1801")
+    check("el campo queda en solo lectura", pg.locator("#saldo-kg").is_disabled())
+    check("pero se sigue viendo el valor", pg.locator("#saldo-kg").input_value() == "40.5",
+          pg.locator("#saldo-kg").input_value())
+    check("y explica por que", "MECSA ya recogió" in pg.locator("#saldo-aviso").inner_text(),
+          pg.locator("#saldo-aviso").inner_text())
+    check("no se puede guardar", pg.locator("#saldo-guardar").is_disabled())
+    pg.keyboard.press("Escape")
+
     print("\n--- taller sin nada declarado: la tarjeta muestra solo su titulo ---")
     STOCK["saldosOs"] = []
     pg.reload()

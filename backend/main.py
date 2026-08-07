@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from pydantic import BaseModel
@@ -549,7 +549,10 @@ saldos as (
 saldos_json as (
     select coalesce(json_agg(json_build_object(
                'orden', orden,
-               'kg',    round(kg_declarado::numeric, 2)) order by orden), '[]'::json) as js
+               'kg',    round(kg_declarado::numeric, 2),
+               -- Ya recogido y pesado por Mecsa: a partir de ahi la merma de la
+               -- OS quedo calculada, asi que el portal deja de permitir editarlo.
+               'recibido', recibido_en is not null) order by orden), '[]'::json) as js
       from saldos
 ),
 {SQL_SUBORDENES},
@@ -637,9 +640,10 @@ select yo.usuario,
 # Las dos variantes del CTE `saldos`: con tabla y sin ella. El portal no puede
 # limitarse a "si no existe, que reviente": la tabla se crea de comun acuerdo con
 # Mecsa y puede tardar, y este mismo SQL es el que pinta TODO el portal.
-_CTE_SALDOS = ("select orden, kg_declarado from saldo_os "
+_CTE_SALDOS = ("select orden, kg_declarado, recibido_en from saldo_os "
                "where taller = (select taller from yo)")
-_CTE_SALDOS_VACIO = "select null::text as orden, null::real as kg_declarado where false"
+_CTE_SALDOS_VACIO = ("select null::text as orden, null::real as kg_declarado, "
+                     "null::timestamptz as recibido_en where false")
 
 
 def _sql_stock() -> str:
@@ -831,10 +835,16 @@ def get_stock(x_token: str | None = Header(default=None), taller: str | None = N
 
 # ---------------------------------------------------------------- admin
 
-@app.get("/admin", response_class=HTMLResponse)
+@app.get("/admin")
 def admin_page():
-    with open(os.path.join(os.path.dirname(__file__), "..", "admin.html"), encoding="utf-8") as fh:
-        return HTMLResponse(fh.read())
+    """La gestion de cuentas ya vive DENTRO del portal, en la pestana "Accesos"
+    que aparece cuando entra un administrador. Hay un solo enlace y una sola
+    sesion; lo que se ve depende de las credenciales, no de la URL.
+
+    La ruta se queda como redireccion permanente para que no se rompan los
+    marcadores ni los enlaces que ya se repartieron.
+    """
+    return RedirectResponse("/", status_code=301)
 
 
 @app.get("/api/admin/tejedores")
@@ -1159,6 +1169,24 @@ def post_saldos(req: SaldosReq, x_token: str | None = Header(default=None)):
                 400,
                 "Estas OS ya fueron cerradas por MECSA y su saldo de hilo solo lo "
                 f"puede corregir MECSA: {bloqueadas}",
+            )
+
+        # Con el hilo ya recogido y pesado, la merma de la OS quedo calculada
+        # sobre esa cifra. Si el tejedor la cambiara despues, las dos cifras se
+        # contradirian y no habria forma de saber cual vale. A partir del recojo
+        # la declaracion es historia: la corrige Mecsa, que es quien peso.
+        recibidas = sorted({
+            r["orden"]
+            for r in conn.execute(
+                "select orden from saldo_os where taller = %s and recibido_en is not null",
+                (taller,),
+            ).fetchall()
+        } & ordenes)
+        if recibidas:
+            raise HTTPException(
+                400,
+                "MECSA ya recogio y peso el hilo de estas OS, asi que su saldo ya no "
+                f"se puede cambiar desde el portal: {recibidas}",
             )
 
         with conn.transaction():

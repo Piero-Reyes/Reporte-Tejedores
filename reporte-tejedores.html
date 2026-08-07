@@ -558,6 +558,11 @@
     font-style:normal; font-size:11px; font-weight:700; color:#B45309;
     background:var(--amber-soft); border-radius:5px; padding:1px 6px; margin-left:6px;
   }
+  /* Ya recogido y pesado por Mecsa: cerrado, en verde, no editable. */
+  .saldo-lista .rec{
+    font-style:normal; font-size:11px; font-weight:700; color:#15803D;
+    background:var(--green-soft); border-radius:5px; padding:1px 6px; margin-left:6px;
+  }
 
   /* ---------------------------------------------------------- */
   /* ACCESOS (pestana solo del admin)                            */
@@ -1146,6 +1151,7 @@ let FILAS = [];        // ultimo payload del server
 let ESTADO = {};       // subos -> {rollos, peso, finalizado} editado por el usuario
 let SALDO_ACTIVO = false;  // hay tabla saldo_os en la base (lo dice /api/stock)
 let SALDOS = {};       // OS -> kg de hilo sobrante ya declarados por el taller
+let RECIBIDOS = {};    // OS cuyo hilo Mecsa ya recogio y peso: ya no se editan
 let ENTREGAS = [];     // serie mensual [{mes, mecsa, guia, n}] para el grafico
 
 /* ------------------------------------------------------------------ */
@@ -1369,7 +1375,12 @@ function pintarPortal(r) {
   // Saldos ya declarados, por OS. Se pre-cargan (a diferencia de rollos/peso):
   // son una declaracion vigente que el taller tiene que poder ver para corregir.
   SALDOS = {};
-  (r.saldosOs || []).forEach(s => { SALDOS[s.orden] = s.kg; });
+  RECIBIDOS = {};
+  (r.saldosOs || []).forEach(s => {
+    SALDOS[s.orden] = s.kg;
+    // Mecsa ya recogio y peso ese hilo: la declaracion pasa a ser historia.
+    if (s.recibido) RECIBIDOS[s.orden] = true;
+  });
 
   // Sin tabla saldo_os en la base, la tarjeta entera se oculta: mejor no
   // mostrarla que ofrecer algo que fallaria al guardar (se acuerda con Mecsa).
@@ -1551,8 +1562,9 @@ function pintarSaldoModal(osPre = null) {
           <option value="" ${sel ? "" : "selected"}>Elige una OS…</option>
           ${elegibles.map(o => {
             const kg = PENDIENTES[o.os] !== undefined ? PENDIENTES[o.os] : SALDOS[o.os];
+            const rec = RECIBIDOS[o.os] ? " · recogido" : "";
             return `<option value="${esc(o.os)}" ${o.os === sel ? "selected" : ""}
-              >${esc(o.os)}${kg != null ? ` · ${formatKg(kg)} kg` : ""}</option>`;
+              >${esc(o.os)}${kg != null ? ` · ${formatKg(kg)} kg` : ""}${rec}</option>`;
           }).join("")}
         </select>
       </div>
@@ -1575,12 +1587,20 @@ function pintarSaldoModal(osPre = null) {
     // guardado: asi se corrige una declaracion anterior sin tener que recordarla.
     const cargar = (foco = false) => {
       const os = selOs.value;
-      inKg.disabled = !os;
       avisoSaldo("");
-      if (!os) { inKg.value = ""; return; }
+      if (!os) { inKg.disabled = true; inKg.value = ""; return; }
       const kg = PENDIENTES[os] !== undefined ? PENDIENTES[os] : SALDOS[os];
       inKg.value = kg != null ? kg : "";
-      if (foco) inKg.focus();
+      // Con el hilo ya recogido y pesado, la merma de la OS quedo calculada
+      // sobre esa cifra: cambiarla ahora dejaria dos numeros contradictorios.
+      // Se ve, pero no se toca; si hay un error, lo corrige Mecsa, que peso.
+      inKg.disabled = !!RECIBIDOS[os];
+      if (RECIBIDOS[os]) {
+        avisoSaldo(`MECSA ya recogió y pesó el hilo de ${os}, así que este saldo ya no se `
+                   + "puede cambiar desde el portal. Si hay un error, avísale a MECSA.");
+      } else if (foco) {
+        inKg.focus();
+      }
     };
     cargar();
     selOs.addEventListener("change", () => cargar(true));
@@ -1603,8 +1623,10 @@ function htmlListaSaldos() {
       ${todas.map(os => {
         const pend = PENDIENTES[os] !== undefined;
         const kg = pend ? PENDIENTES[os] : SALDOS[os];
+        const marca = pend ? ' <em class="pend">sin guardar</em>'
+                    : RECIBIDOS[os] ? ' <em class="rec">recogido</em>' : "";
         return `<div class="item"><b>${esc(os)}</b>
-          <span class="kg">${formatKg(kg)} kg${pend ? ' <em class="pend">sin guardar</em>' : ""}</span></div>`;
+          <span class="kg">${formatKg(kg)} kg${marca}</span></div>`;
       }).join("")}
     </div>`;
 }
