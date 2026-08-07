@@ -137,12 +137,12 @@ with sync_playwright() as p:
     GUARDADOS.clear()
     pg.fill("#acc-usuario", "roca")
     pg.select_option("#acc-taller", "FAM")
-    pg.fill("#acc-clave", "secreta")
+    pg.fill("#acc-clave", "clave-de-prueba")
     pg.click("#acc-form button[type=submit]")
     pg.wait_for_timeout(500)
     check("manda usuario, taller y clave",
           GUARDADOS and GUARDADOS[0] == {"usuario": "roca", "taller": "FAM",
-                                         "clave": "secreta", "activo": True},
+                                         "clave": "clave-de-prueba", "activo": True},
           json.dumps(GUARDADOS[0]) if GUARDADOS else "nada")
     check("avisa que se guardo", "creado" in pg.locator("#acc-alerta").inner_text(),
           pg.locator("#acc-alerta").inner_text())
