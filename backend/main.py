@@ -7,8 +7,9 @@ Fuentes (Supabase, las mismas que consume OC_Hilo):
   - guia_os        : detalle de subordenes (estado PENDIENTE = por reportar)
   - logs_ingresos  : log append-only de reportes, sellado por `vez`
   - usuarios       : identidad (reusa es_tejedor/tejedor/clave_hash/token)
-  - saldo_suborden : saldos de hilo declarados por el tejedor. Propiedad COMPARTIDA
-                     con Mecsa: el portal escribe kg_declarado y NO toca kg_recibido
+  - saldo_os       : saldos de hilo declarados por el tejedor, POR OS. Propiedad
+                     COMPARTIDA con Mecsa: el portal escribe kg_declarado y NO
+                     toca kg_recibido
 
 Regla de oro: el `taller` SIEMPRE sale del token, nunca del cliente.
 """
@@ -131,9 +132,9 @@ POOL = ConnectionPool(
 )
 
 
-# saldo_suborden es de propiedad COMPARTIDA (el portal declara, Mecsa confirma la
+# saldo_os es de propiedad COMPARTIDA (el portal declara, Mecsa confirma la
 # recepcion), asi que el portal NO la crea: se acuerda y se ejecuta una vez el DDL
-# de backend/sql/saldo_suborden.sql. Mientras no exista, esto queda en False y la
+# de backend/sql/saldo_os.sql. Mientras no exista, esto queda en False y la
 # funcion de saldos se apaga sola en vez de tumbar el portal.
 HAY_SALDO = False
 
@@ -153,14 +154,14 @@ def _abrir_pool():
                )"""
         )
         HAY_SALDO = conn.execute(
-            "select to_regclass('public.saldo_suborden') is not null as hay"
+            "select to_regclass('public.saldo_os') is not null as hay"
         ).fetchone()["hay"]
     if not HAY_SALDO:
         # flush explicito: con la salida redirigida a un archivo (que es como corre
         # en la laptop), Python bufferiza stdout y este aviso no se veria hasta que
         # el proceso muere. Es justo el mensaje que hay que leer AL arrancar.
-        print("[saldo] la tabla saldo_suborden no existe: el campo de saldo de hilo "
-              "queda oculto. Ver backend/sql/saldo_suborden.sql", flush=True)
+        print("[saldo] la tabla saldo_os no existe: la tarjeta de saldo de hilo "
+              "queda oculta. Ver backend/sql/saldo_os.sql", flush=True)
 
 
 @app.on_event("shutdown")
@@ -259,15 +260,22 @@ class FilaReporte(BaseModel):
     # mercaderia, pero no siempre se empieza ese dia; el taller la puede corregir.
     # No pisa guia_os (columna de OC_Hilo): vive en logs_ingresos, como la liquidacion.
     fecha_inicio: str | None = None
-    # Kg de hilo aprovechable que le quedaron al taller en los conos ("puchos").
-    # OPCIONAL y nunca obligatorio: None = "no declaro" (no se escribe nada),
-    # 0.0 = "declaro que no quedo nada" (si se escribe). El front solo lo manda
-    # cuando el tejedor lo cambio, para no repisar declarado_en en cada reporte.
-    saldo_hilo: float | None = None
 
 
 class ReporteReq(BaseModel):
     filas: list[FilaReporte]
+
+
+class FilaSaldo(BaseModel):
+    orden: str
+    # Kg de hilo aprovechable que le quedaron al taller en los conos ("puchos"),
+    # consolidados por OS. 0 = "declaro que no quedo nada" y SI se guarda; para
+    # no declarar nada, la fila simplemente no se manda.
+    kg: float
+
+
+class SaldosReq(BaseModel):
+    filas: list[FilaSaldo]
 
 
 class FilaFechas(BaseModel):
@@ -527,13 +535,22 @@ fechas as (
     select subos, fecha_inicio, fecha_liquidacion
       from suborden_fechas where taller = (select taller from yo)
 ),
--- Saldos de hilo ya declarados por el taller. El {{SALDOS}} lo resuelve
--- _sql_stock() al arrancar: si la tabla todavia no existe (es de propiedad
--- compartida con Mecsa, ver §4.2 del encargo), se reemplaza por un CTE vacio y
--- la columna llega siempre en null. Solo se lee kg_declarado: kg_recibido es de
--- Mecsa y el portal ni lo muestra ni lo toca.
+-- Saldos de hilo ya declarados por el taller, POR OS (no por suborden: el dato
+-- se consolida por orden de servicio). El {{SALDOS}} lo resuelve _sql_stock() al
+-- arrancar: si la tabla todavia no existe (es de propiedad compartida con Mecsa,
+-- ver §4.2 del encargo), se reemplaza por un CTE vacio y no llega ningun saldo.
+-- Solo se lee kg_declarado: kg_recibido es de Mecsa y el portal ni lo muestra ni
+-- lo toca.
 saldos as (
     {{SALDOS}}
+),
+-- Se manda una sola vez en la cabecera (como entregas_mes), no repetido en cada
+-- fila: es un dato por OS y la tabla trae una fila por suborden.
+saldos_json as (
+    select coalesce(json_agg(json_build_object(
+               'orden', orden,
+               'kg',    round(kg_declarado::numeric, 2)) order by orden), '[]'::json) as js
+      from saldos
 ),
 {SQL_SUBORDENES},
 -- Avance (kg despachado) con la MISMA formula que OC_Hilo, para que no diverjan.
@@ -574,10 +591,7 @@ select yo.usuario,
        -- sobre guia_os.fecha al mostrar. La original no se toca.
        fe.fecha_inicio          as fecha_inicio_taller,
        (cc.subos is not null)   as cerrada,
-       -- kg_declarado es REAL (float4): 40.51 vuelve como 40.509998... y el
-       -- <input type=number> lo mostraria tal cual. Se redondea al leer, igual
-       -- que `despachado`.
-       round(sa.kg_declarado::numeric, 2) as saldo_hilo,
+       (select js from saldos_json) as saldos_os,
        -- Desglose del `despachado`: los MISMOS componentes con que se calcula el
        -- avance (arriba), para que el total del detalle cuadre con la columna
        -- Despachado. Base = recojos (recogido=1) si la suborden los tiene; si no, el
@@ -616,7 +630,6 @@ select yo.usuario,
   left join ultimo r on r.subos = s.subos
   left join cerradas cc on cc.subos = s.subos
   left join fechas fe on fe.subos = s.subos
-  left join saldos sa on sa.subos = s.subos
   left join avance av on av.subos = s.subos
  order by s.os, s.tejido
 """
@@ -624,9 +637,9 @@ select yo.usuario,
 # Las dos variantes del CTE `saldos`: con tabla y sin ella. El portal no puede
 # limitarse a "si no existe, que reviente": la tabla se crea de comun acuerdo con
 # Mecsa y puede tardar, y este mismo SQL es el que pinta TODO el portal.
-_CTE_SALDOS = ("select subos, kg_declarado from saldo_suborden "
+_CTE_SALDOS = ("select orden, kg_declarado from saldo_os "
                "where taller = (select taller from yo)")
-_CTE_SALDOS_VACIO = "select null::text as subos, null::real as kg_declarado where false"
+_CTE_SALDOS_VACIO = "select null::text as orden, null::real as kg_declarado where false"
 
 
 def _sql_stock() -> str:
@@ -636,7 +649,7 @@ def _sql_stock() -> str:
 CAMPOS_FILA = ("subos", "os", "tejido", "ancho", "fibra", "nombre", "proveedor",
                "programado", "despachado", "queda", "fecha_inicio", "fecha_inicio_taller",
                "estado_actual", "rollos", "peso", "finalizado", "fecha_liquidacion",
-               "cerrada", "saldo_hilo", "guias")
+               "cerrada", "guias")
 
 
 def _fecha_iso(v: str | None) -> str | None:
@@ -708,8 +721,8 @@ def _guardar_fechas(conn, taller: str, subos: str, fecha_inicio, fecha_liquidaci
     )
 
 
-def _guardar_saldo(conn, taller: str, subos: str, kg: float, usuario: str) -> None:
-    """Upsert de la declaracion de saldo de hilo del TEJEDOR.
+def _guardar_saldo(conn, taller: str, orden: str, kg: float, usuario: str) -> None:
+    """Upsert de la declaracion de saldo de hilo del TEJEDOR, por OS.
 
     El ON CONFLICT toca SOLO las tres columnas del portal. kg_recibido /
     recibido_en / recibido_por son de Mecsa (las llena cuando pesa el hilo que
@@ -718,13 +731,13 @@ def _guardar_saldo(conn, taller: str, subos: str, kg: float, usuario: str) -> No
     queda constancia de que declaro.
     """
     conn.execute(
-        """insert into saldo_suborden (subos, taller, kg_declarado, declarado_en, declarado_por)
+        """insert into saldo_os (orden, taller, kg_declarado, declarado_en, declarado_por)
              values (%s, %s, %s, now(), %s)
-           on conflict (subos) do update
+           on conflict (orden) do update
                set kg_declarado  = excluded.kg_declarado,
                    declarado_en  = now(),
                    declarado_por = excluded.declarado_por""",
-        (subos, taller, kg, usuario),
+        (orden, taller, kg, usuario),
     )
 
 
@@ -803,9 +816,12 @@ def get_stock(x_token: str | None = Header(default=None), taller: str | None = N
         "entregasMes": cab["entregas_mes"],
         "ultimaVez": cab["ultima_vez"],
         "proximaVez": (cab["ultima_vez"] or 0) + 1,
-        # Sin tabla saldo_suborden el front no pinta el campo (en vez de ofrecer
-        # algo que fallaria al guardar).
+        # Sin tabla saldo_os el front no pinta la tarjeta (en vez de ofrecer algo
+        # que fallaria al guardar).
         "saldoActivo": HAY_SALDO,
+        # [{orden, kg}] ya declarados por este taller. Va en la cabecera, no por
+        # fila: es un dato por OS y `data` trae una fila por suborden.
+        "saldosOs": cab["saldos_os"],
         "data": data,
     }
     if talleres is not None:      # admin: mantiene poblado el selector de talleres
@@ -947,17 +963,6 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
     if len(req.filas) > 2000:
         raise HTTPException(400, "El reporte trae demasiadas filas.")
 
-    # Saldos de hilo declarados en este envio. Solo las filas que lo traen: una
-    # suborden sin saldo no genera ninguna escritura (vacio != cero).
-    saldos = [f for f in req.filas if f.saldo_hilo is not None]
-    for f in saldos:
-        if not math.isfinite(f.saldo_hilo) or f.saldo_hilo < 0:
-            raise HTTPException(400, f"El saldo de hilo de {f.subos} debe ser un numero mayor o igual a 0.")
-    if saldos and not HAY_SALDO:
-        raise HTTPException(
-            503, "El registro de saldos de hilo aun no esta habilitado en la base de datos."
-        )
-
     fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     with db() as conn:
@@ -989,25 +994,6 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
             if desconocidas:
                 raise HTTPException(400, f"Subordenes no asignadas a {taller}: {desconocidas}")
 
-            # Una suborden ya cerrada por Mecsa no se redeclara desde el portal:
-            # a partir del cierre, corregir el saldo es trabajo de Mecsa (y queda
-            # registrado quien lo hizo). El front ni siquiera las muestra; esto
-            # cubre el caso de un POST armado a mano.
-            if saldos:
-                cerradas = {
-                    r["subos"]
-                    for r in conn.execute(
-                        "select subos from subordenes_cerradas where taller = %s", (taller,)
-                    ).fetchall()
-                }
-                bloqueadas = [f.subos for f in saldos if f.subos in cerradas]
-                if bloqueadas:
-                    raise HTTPException(
-                        400,
-                        "Estas subordenes ya fueron cerradas por MECSA y su saldo de hilo "
-                        f"solo lo puede corregir MECSA: {bloqueadas}",
-                    )
-
             for f in req.filas:
                 consumo = validas[f.subos]["despachado"] or 0.0
                 # Misma aritmetica que el AppScript: acumula sobre lo ya despachado.
@@ -1024,9 +1010,6 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
                 )
                 # Fuente unica de fechas: el reporte tambien las deja en suborden_fechas.
                 _guardar_fechas(conn, taller, f.subos, f.fecha_inicio, f.fecha_liquidacion)
-
-            for f in saldos:
-                _guardar_saldo(conn, taller, f.subos, f.saldo_hilo, u["usuario"])
 
         # Aviso al equipo de Mecsa. Fuera de la transaccion: el reporte ya esta
         # guardado y el correo no debe poder tumbarlo.
@@ -1062,8 +1045,7 @@ def post_stock(req: ReporteReq, x_token: str | None = Header(default=None)):
         # No se falla el request: el reporte ya se guardo. Pero queda dicho.
         print(f"[correo] reporte #{vez} de {taller} NO enviado: {aviso['motivo']}")
 
-    return {"ok": True, "vez": vez, "filas": len(req.filas),
-            "saldos": len(saldos), "correo": aviso}
+    return {"ok": True, "vez": vez, "filas": len(req.filas), "correo": aviso}
 
 
 @app.post("/api/fechas")
@@ -1105,5 +1087,82 @@ def post_fechas(req: FechasReq, x_token: str | None = Header(default=None)):
         with conn.transaction():
             for f in req.filas:
                 _guardar_fechas(conn, taller, f.subos, f.fecha_inicio, f.fecha_liquidacion)
+
+    return {"ok": True, "filas": len(req.filas)}
+
+
+@app.post("/api/saldos")
+def post_saldos(req: SaldosReq, x_token: str | None = Header(default=None)):
+    """Declara los kg de hilo sobrante ("puchos") que le quedan al taller, por OS.
+
+    Aparte del reporte a proposito: NO genera `vez` ni dispara el correo a Mecsa.
+    Eso es lo que permite que el panel autoguarde mientras el tejedor escribe;
+    si colgara del reporte, cada guardado seria un `vez` nuevo y OC_Hilo, que lee
+    el ultimo `vez` como el reporte completo del dia, leeria basura.
+
+    Solo el TEJEDOR declara. El admin ve el portal en modo lectura y las
+    correcciones posteriores al cierre las hace Mecsa desde su vista (§6).
+    """
+    u = tejedor_desde_token(x_token)
+    taller = u["tejedor"]
+
+    if not HAY_SALDO:
+        raise HTTPException(
+            503, "El registro de saldos de hilo aun no esta habilitado en la base de datos."
+        )
+    if not req.filas:
+        raise HTTPException(400, "No hay saldos que guardar.")
+    if len(req.filas) > 500:
+        raise HTTPException(400, "Demasiadas filas.")
+
+    for f in req.filas:
+        if not math.isfinite(f.kg) or f.kg < 0:
+            raise HTTPException(400, f"El saldo de hilo de {f.orden} debe ser un numero mayor o igual a 0.")
+
+    ordenes = {f.orden.strip().upper() for f in req.filas}
+
+    with db() as conn:
+        # Las OS del taller salen de la MISMA union que el resto del portal
+        # (guia_os pendientes + EPTes confirmadas), no de lo que mande el cliente.
+        validas = {
+            r["os"]
+            for r in conn.execute(
+                f"""with yo as (select %(taller)s::text as taller),
+                    {SQL_SUBORDENES}
+                    select distinct os from subordenes""",
+                {"taller": taller},
+            ).fetchall()
+        }
+        desconocidas = sorted(ordenes - validas)
+        if desconocidas:
+            raise HTTPException(400, f"OS no asignadas a {taller}: {desconocidas}")
+
+        # Una OS cuyas subordenes ya cerro Mecsa deja de ser editable desde el
+        # portal: a partir de ahi la corrige Mecsa y queda registrado quien fue
+        # (§6). Se considera cerrada la OS cuando TODAS sus subordenes lo estan.
+        cerradas = {
+            r["os"]
+            for r in conn.execute(
+                f"""with yo as (select %(taller)s::text as taller),
+                    {SQL_SUBORDENES}
+                    select s.os
+                      from subordenes s
+                      left join subordenes_cerradas c on c.subos = s.subos
+                     group by s.os
+                    having count(*) = count(c.subos)""",
+                {"taller": taller},
+            ).fetchall()
+        }
+        bloqueadas = sorted(ordenes & cerradas)
+        if bloqueadas:
+            raise HTTPException(
+                400,
+                "Estas OS ya fueron cerradas por MECSA y su saldo de hilo solo lo "
+                f"puede corregir MECSA: {bloqueadas}",
+            )
+
+        with conn.transaction():
+            for f in req.filas:
+                _guardar_saldo(conn, taller, f.orden.strip().upper(), f.kg, u["usuario"])
 
     return {"ok": True, "filas": len(req.filas)}

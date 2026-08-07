@@ -426,7 +426,9 @@
   tr.fila-total:hover td{ background:#FAFBFD; }
   .tabla-nota{ font-size:11.5px; color:var(--muted-soft); padding:12px 18px 14px; }
 
-  .stats-row{ display:flex; gap:14px; margin-bottom:22px; flex-wrap:wrap; }
+  .stats-row{ display:flex; gap:14px; margin-bottom:22px; flex-wrap:wrap; align-items:flex-start; }
+  .stats-cards{ display:flex; gap:14px; flex-wrap:wrap; }
+  #saldo-slot{ margin-left:auto; }
   .stat-card{
     background:var(--card);
     border:1px solid var(--line);
@@ -442,6 +444,92 @@
     font-size:11px; text-transform:uppercase; letter-spacing:.07em;
     color:var(--muted-soft); margin-top:2px; font-weight:600;
   }
+
+  /* ---------------------------------------------------------- */
+  /* SALDO DE HILO — tarjeta-boton + panel emergente             */
+  /* ---------------------------------------------------------- */
+  /* Va suelta a la DERECHA de los indicadores (margin-left:auto) y en ambar,
+     para que se lea como una accion y no como un indicador mas. El dato es por
+     OS, no por suborden: por eso no vive en la tabla, que es por suborden. */
+  /* La tarjeta es un <button> y el panel un <div> HERMANO, no anidado: un
+     <select> dentro de un <button> es HTML invalido y el teclado se rompe. */
+  .saldo-wrap{ position:relative; }
+  .saldo-card{
+    display:flex; align-items:center; gap:12px;
+    background:var(--amber-soft);
+    border:1px solid #F7D9A0;
+    border-top:3px solid var(--amber);
+    border-radius:var(--radius-sm);
+    padding:12px 18px; min-width:200px;
+    box-shadow:var(--shadow);
+    font-family:inherit; text-align:left;
+    cursor:pointer;
+    transition:box-shadow .15s ease, transform .15s ease;
+  }
+  .saldo-card:hover{ box-shadow:var(--shadow-lg); }
+  .saldo-card:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+  .saldo-card .ico{ font-size:20px; line-height:1; }
+  .saldo-card .num{
+    font-family:'Poppins',sans-serif; font-size:22px; font-weight:600; color:#92400E;
+  }
+  .saldo-card .lbl{
+    font-size:11px; text-transform:uppercase; letter-spacing:.07em;
+    color:#B45309; margin-top:2px; font-weight:700;
+  }
+  /* El estado del autoguardado. Sin esto el usuario no sabe si lo que escribio
+     quedo guardado: no hay boton que pulsar. */
+  .saldo-card .hint{ font-size:11px; color:#B45309; margin-top:3px; font-weight:500; }
+
+  /* Panel emergente: cuelga de la tarjeta, alineado a la derecha para que no se
+     salga por el borde de la pantalla. */
+  .saldo-pop{
+    position:absolute; top:calc(100% + 8px); right:0; z-index:60;
+    width:380px; max-width:92vw;
+    background:var(--card); color:var(--ink);
+    border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow-lg);
+    padding:18px; cursor:default;
+    text-align:left;
+  }
+  .saldo-pop[hidden]{ display:none; }
+  .saldo-pop h4{
+    margin:0 0 4px; font-size:15px; font-family:'Poppins',sans-serif; font-weight:600;
+  }
+  .saldo-pop .sub{ font-size:12.5px; color:var(--muted); margin:0 0 14px; line-height:1.45; }
+  .saldo-pop label{
+    display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted); font-weight:700; margin-bottom:5px;
+  }
+  .saldo-pop select, .saldo-pop .kg-input{
+    width:100%; padding:9px 10px; border-radius:9px; border:1.5px solid var(--line);
+    background:#FBFCFE; font-family:inherit; font-size:14px; color:var(--ink);
+  }
+  .saldo-pop select:focus, .saldo-pop .kg-input:focus{
+    outline:none; border-color:var(--amber); box-shadow:0 0 0 3px rgba(245,158,11,.18);
+  }
+  .saldo-pop .campo{ margin-bottom:13px; }
+  .saldo-pop .campo:last-of-type{ margin-bottom:0; }
+  .saldo-pop .aviso{
+    font-size:12.5px; line-height:1.45; margin-top:9px;
+    background:var(--amber-soft); border-left:3px solid var(--amber);
+    padding:8px 10px; border-radius:6px; color:#92400E;
+  }
+  .saldo-pop .aviso[hidden]{ display:none; }
+  .saldo-pop .vacio{
+    font-size:13px; color:var(--muted-soft); text-align:center; padding:14px 0; line-height:1.5;
+  }
+  /* Lo ya declarado, para que el taller vea de un vistazo que cargo. */
+  .saldo-lista{ margin-top:15px; border-top:1px solid var(--line); padding-top:11px; }
+  .saldo-lista .tit{
+    font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--muted-soft); font-weight:700; margin-bottom:7px;
+  }
+  .saldo-lista .item{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:13.5px; padding:3px 0;
+  }
+  .saldo-lista .item b{ font-weight:600; }
+  .saldo-lista .item .kg{ font-variant-numeric:tabular-nums; color:var(--muted); }
 
   .table-card{
     background:var(--card);
@@ -580,23 +668,7 @@
   input[type="checkbox"].estado-check{
     width:17px; height:17px; accent-color:var(--red); cursor:pointer;
   }
-  /* "Terminada" ya no es la ultima columna (ahora le sigue el saldo), asi que
-     pierde el centrado de td:last-child; se lo devolvemos explicito. */
   .check-cell{ text-align:center; }
-
-  /* ---- Saldo de hilo ("puchos" que quedan en los conos) ----
-     Va pegado a la casilla "Terminada" porque se declara en el mismo momento.
-     Es OPCIONAL: vacio significa "no declaro", no cero. Solo se habilita al
-     marcar terminada; al desmarcar se oculta pero NO se borra lo escrito. */
-  .saldo-cell{ text-align:center; }
-  .saldo-input{ width:96px; }
-  .saldo-input[hidden]{ display:none; }
-  /* Un guion en gris ocupa el lugar del campo mientras la suborden no este
-     terminada: sin esto la columna se ve rota (celdas vacias sin explicacion). */
-  .saldo-off{ color:var(--muted-soft); font-size:13px; }
-  .saldo-off[hidden]{ display:none; }
-  /* Toda la columna desaparece si la base todavia no tiene saldo_suborden. */
-  .sin-saldo .col-saldo, .sin-saldo .saldo-cell{ display:none; }
 
   .table-foot{
     display:flex;
@@ -792,7 +864,13 @@
     <h2 class="section-title">Completa el reporte de Stock</h2>
     <p class="section-sub">Escribe el conteo de hoy: los campos arrancan vacíos a propósito. En gris ves lo que reportaste la última vez, solo como referencia. Se envía todo junto.</p>
 
-    <div class="stats-row" id="stats-row"></div>
+    <!-- Los indicadores se repintan en cada tecla (renderStats). La tarjeta de
+         saldo vive en su propio hueco para que ese repintado no cierre el panel
+         ni le robe el foco al campo. -->
+    <div class="stats-row">
+      <div class="stats-cards" id="stats-row"></div>
+      <div id="saldo-slot"></div>
+    </div>
 
     <div class="table-card">
       <div class="table-scroll">
@@ -813,8 +891,6 @@
               <th>Estado</th>
               <th>Liquidación</th>
               <th>Terminada</th>
-              <th class="col-saldo"
-                  title="Hilo aprovechable que te queda en los conos al terminar la suborden. Es opcional y es solo un registro: no cambia tu avance ni ningún otro número de esta pantalla.">Saldo de hilo (kg)</th>
             </tr>
           </thead>
           <tbody id="table-body">
@@ -921,8 +997,9 @@
 let TOKEN = sessionStorage.getItem("tejedor_token") || sessionStorage.getItem("admin_token") || null;
 let ROL = null;        // "tejedor" | "admin" — lo dice /api/stock
 let FILAS = [];        // ultimo payload del server
-let ESTADO = {};       // subos -> {rollos, peso, finalizado, saldo_hilo} editado por el usuario
-let SALDO_ACTIVO = false;  // hay tabla saldo_suborden en la base (lo dice /api/stock)
+let ESTADO = {};       // subos -> {rollos, peso, finalizado} editado por el usuario
+let SALDO_ACTIVO = false;  // hay tabla saldo_os en la base (lo dice /api/stock)
+let SALDOS = {};       // OS -> kg de hilo sobrante ya declarados por el taller
 let ENTREGAS = [];     // serie mensual [{mes, mecsa, guia, n}] para el grafico
 
 /* ------------------------------------------------------------------ */
@@ -1064,7 +1141,7 @@ async function entrar() {
 
 async function cargarStock() {
   const tbody = document.getElementById("table-body");
-  tbody.innerHTML = `<tr><td colspan="15" style="padding:28px;text-align:center;color:var(--muted-soft)">Cargando…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="14" style="padding:28px;text-align:center;color:var(--muted-soft)">Cargando…</td></tr>`;
 
   let r;
   try {
@@ -1101,7 +1178,7 @@ function prepararAdmin(talleres) {
 
   // estado inicial: aun sin taller elegido
   document.getElementById("table-body").innerHTML =
-    `<tr><td colspan="15" style="padding:32px;text-align:center;color:var(--muted-soft)">Elige un taller arriba para ver su avance.</td></tr>`;
+    `<tr><td colspan="14" style="padding:32px;text-align:center;color:var(--muted-soft)">Elige un taller arriba para ver su avance.</td></tr>`;
   document.getElementById("table-foot").style.display = "none";
   document.getElementById("kpi-row").innerHTML = "";
   document.getElementById("avance-body").innerHTML = "";
@@ -1132,21 +1209,20 @@ function pintarPortal(r) {
     // Mecsa monitorea, no un conteo diario.
     ESTADO[f.subos] = esAdmin
       ? { rollos: f.rollos, peso: f.peso, finalizado: !!f.finalizado, fecha_liquidacion: f.fecha_liquidacion ?? null,
-          fecha_inicio: f.fecha_inicio_taller ?? f.fecha_inicio ?? null,
-          saldo_hilo: f.saldo_hilo ?? null }
+          fecha_inicio: f.fecha_inicio_taller ?? f.fecha_inicio ?? null }
       : { rollos: null, peso: null, finalizado: !!f.finalizado, fecha_liquidacion: f.fecha_liquidacion ?? null,
           // Inicio efectivo: la fecha corregida por el taller manda; si no hay, la de llegada.
-          fecha_inicio: f.fecha_inicio_taller ?? f.fecha_inicio ?? null,
-          // El saldo declarado SI se pre-carga (como finalizado): no es un conteo
-          // del dia sino una declaracion vigente, y el tejedor tiene que poder
-          // verla para corregirla. null = todavia no declaro nada.
-          saldo_hilo: f.saldo_hilo ?? null };
+          fecha_inicio: f.fecha_inicio_taller ?? f.fecha_inicio ?? null };
   });
 
-  // Sin tabla saldo_suborden en la base, la columna entera se oculta: mejor no
-  // mostrarla que ofrecer un campo que fallaria al guardar (se acuerda con Mecsa).
+  // Saldos ya declarados, por OS. Se pre-cargan (a diferencia de rollos/peso):
+  // son una declaracion vigente que el taller tiene que poder ver para corregir.
+  SALDOS = {};
+  (r.saldosOs || []).forEach(s => { SALDOS[s.orden] = s.kg; });
+
+  // Sin tabla saldo_os en la base, la tarjeta entera se oculta: mejor no
+  // mostrarla que ofrecer algo que fallaria al guardar (se acuerda con Mecsa).
   SALDO_ACTIVO = r.saldoActivo !== false;
-  document.getElementById("dashboard").classList.toggle("sin-saldo", !SALDO_ACTIVO);
 
   if (esAdmin) {
     document.getElementById("tejedor-name").textContent = r.nombreTaller || r.taller;
@@ -1193,6 +1269,242 @@ function renderStats() {
     <div class="stat-card"><div class="num mono">${porLlenar}</div><div class="lbl">Por completar</div></div>
   `;
 }
+
+/* ------------------------------------------------------------------ */
+/* saldo de hilo: tarjeta + panel emergente                            */
+/* ------------------------------------------------------------------ */
+/* El dato es POR OS (Achorado 3.0 lo suma al total de cada OS), no por
+   suborden. Por eso no vive en la tabla, que es por suborden: si estuviera
+   ahi, un taller con 3 subordenes de la misma OS no sabria en cual anotarlo.
+
+   Solo se pueden declarar OS cuyas subordenes esten TODAS marcadas como
+   terminadas: mientras quede una tejiendo, el saldo de esa OS no es final. */
+
+function osElegibles() {
+  const porOs = {};
+  FILAS.filter(f => !f.cerrada).forEach(f => {
+    (porOs[f.os] ||= { os: f.os, n: 0, listas: 0, programado: 0 });
+    porOs[f.os].n++;
+    porOs[f.os].programado += Number(f.programado) || 0;
+    // El estado vivo (lo que el usuario tiene marcado AHORA), no lo ultimo
+    // reportado: si acaba de marcar la casilla, la OS ya debe poder elegirse.
+    if (ESTADO[f.subos] && ESTADO[f.subos].finalizado) porOs[f.os].listas++;
+  });
+  return Object.values(porOs).filter(o => o.n === o.listas).sort((a, b) => a.os < b.os ? -1 : 1);
+}
+
+/* Pinta el hueco de la tarjeta. Se llama al cargar y cuando cambia el conjunto
+   de OS elegibles; NO en cada tecla (eso es renderStats, que es otro elemento). */
+function renderSaldoCard() {
+  const slot = document.getElementById("saldo-slot");
+  if (!slot) return;
+  // El admin no declara: su visor es de lectura y las correcciones posteriores
+  // al cierre las hace Mecsa desde su propia vista.
+  if (!SALDO_ACTIVO || ROL === "admin") { slot.innerHTML = ""; return; }
+  const n = Object.keys(SALDOS).length;
+  const kg = Object.values(SALDOS).reduce((a, b) => a + (Number(b) || 0), 0);
+  slot.innerHTML = `
+    <div class="saldo-wrap" id="saldo-wrap">
+      <button type="button" class="saldo-card" id="saldo-card"
+              aria-haspopup="dialog" aria-expanded="false" aria-controls="saldo-pop"
+              title="Declara los kg de hilo que te sobraron en los conos, por OS.">
+        <span class="ico" aria-hidden="true">🧶</span>
+        <span>
+          <span class="num mono">${n ? formatKg(kg) : "—"}</span>
+          <span class="lbl">Saldo de hilo (kg)</span>
+          <span class="hint" id="saldo-hint">${n ? `${n} OS declarada${n > 1 ? "s" : ""} · toca para editar`
+                                                 : "Toca para declarar"}</span>
+        </span>
+      </button>
+      <div class="saldo-pop" id="saldo-pop" role="dialog"
+           aria-label="Declarar saldo de hilo por OS" hidden></div>
+    </div>`;
+  document.getElementById("saldo-card").addEventListener("click", () => toggleSaldoPop());
+}
+
+/* Repinta la tarjeta cuando cambia lo que hay que mostrar (marcaron una casilla).
+   Si el panel estaba abierto, lo deja abierto y en la misma OS. */
+function renderSaldos() {
+  const abierto = saldoPopAbierto();
+  const os = abierto ? (document.getElementById("saldo-os") || {}).value : null;
+  renderSaldoCard();
+  if (abierto) abrirSaldoPop(os);
+}
+
+function saldoPopAbierto() {
+  const p = document.getElementById("saldo-pop");
+  return !!p && !p.hidden;
+}
+
+function toggleSaldoPop() {
+  if (saldoPopAbierto()) cerrarSaldoPop(); else abrirSaldoPop();
+}
+
+function cerrarSaldoPop() {
+  const p = document.getElementById("saldo-pop");
+  const c = document.getElementById("saldo-card");
+  if (p) p.hidden = true;
+  if (c) c.setAttribute("aria-expanded", "false");
+}
+
+/* Pinta el panel. `osPre` deja seleccionada una OS concreta (al repintar). */
+function abrirSaldoPop(osPre = null) {
+  const pop = document.getElementById("saldo-pop");
+  const card = document.getElementById("saldo-card");
+  if (!pop) return;
+
+  const elegibles = osElegibles();
+  const declaradas = Object.keys(SALDOS).sort();
+
+  const lista = declaradas.length ? `
+    <div class="saldo-lista">
+      <div class="tit">Ya declarado</div>
+      ${declaradas.map(os => `<div class="item"><b>${esc(os)}</b>
+        <span class="kg">${formatKg(SALDOS[os])} kg</span></div>`).join("")}
+    </div>` : "";
+
+  if (!elegibles.length) {
+    pop.innerHTML = `
+      <h4>Saldo de hilo</h4>
+      <p class="sub">Los kg de hilo aprovechable que te quedaron en los conos, por OS.</p>
+      <div class="vacio">Todavía no hay ninguna OS disponible.<br>
+        Una OS aparece aquí cuando <b>todas</b> sus subórdenes están marcadas como terminadas.</div>
+      ${lista}`;
+  } else {
+    const sel = osPre && elegibles.some(o => o.os === osPre) ? osPre : elegibles[0].os;
+    pop.innerHTML = `
+      <h4>Saldo de hilo</h4>
+      <p class="sub">Los kg de hilo aprovechable que te quedaron en los conos, por OS.
+        Se guarda solo, mientras escribes.</p>
+      <div class="campo">
+        <label for="saldo-os">Orden de servicio</label>
+        <select id="saldo-os">
+          ${elegibles.map(o => `<option value="${esc(o.os)}" ${o.os === sel ? "selected" : ""}
+            >${esc(o.os)}${SALDOS[o.os] != null ? ` · ${formatKg(SALDOS[o.os])} kg declarados` : ""}</option>`).join("")}
+        </select>
+      </div>
+      <div class="campo">
+        <label for="saldo-kg">Kg de hilo sobrante</label>
+        <input type="number" min="0" step="0.01" class="kg-input" id="saldo-kg"
+               placeholder="Ej: 40.50" aria-describedby="saldo-aviso">
+      </div>
+      <div class="aviso" id="saldo-aviso" hidden></div>
+      ${lista}`;
+
+    const selOs = pop.querySelector("#saldo-os");
+    const inKg = pop.querySelector("#saldo-kg");
+    const cargar = () => { inKg.value = SALDOS[selOs.value] ?? ""; avisoSaldo(""); };
+    cargar();
+    selOs.addEventListener("change", cargar);
+    inKg.addEventListener("input", () => programarGuardadoSaldo(selOs.value, inKg));
+  }
+
+  pop.hidden = false;
+  if (card) card.setAttribute("aria-expanded", "true");
+}
+
+function avisoSaldo(msg) {
+  const a = document.getElementById("saldo-aviso");
+  if (!a) return;
+  a.textContent = msg;
+  a.hidden = !msg;
+}
+
+function pistaSaldo(msg) {
+  const h = document.getElementById("saldo-hint");
+  if (h) h.textContent = msg;
+}
+
+/* ---- autoguardado ----
+   Se guarda solo, con un retardo desde la ultima tecla: escribir "40.50" son 5
+   pulsaciones y no tiene sentido mandar 5 peticiones. No hace falta un
+   WebSocket: no hay nada que el servidor tenga que empujar al navegador, solo
+   el navegador escribiendo. Y no puede colgar del reporte, porque cada envio de
+   reporte crea un `vez` y OC_Hilo lee el ultimo `vez` como el reporte completo:
+   autoguardar ahi generaria decenas de `vez` y rompería esa lectura. */
+let saldoTimer = null;
+let saldoVuelo = false;      // hay un guardado en curso
+let saldoPend = null;        // ultimo cambio llegado mientras se guardaba
+
+function programarGuardadoSaldo(orden, input) {
+  const crudo = input.value.trim();
+  if (crudo === "") { avisoSaldo(""); clearTimeout(saldoTimer); return; }  // vacio = no declara
+
+  const kg = Number(crudo);
+  if (!Number.isFinite(kg) || kg < 0) {
+    avisoSaldo("El saldo no puede ser negativo. Escribe 0 si no te quedó nada.");
+    clearTimeout(saldoTimer);
+    return;
+  }
+
+  // Aviso por dedazo (400 en vez de 40): informa, nunca bloquea. Un taller puede
+  // reciclar los puchos de varias OS y cargarlos donde le convenga.
+  const info = osElegibles().find(o => o.os === orden);
+  const prog = info ? info.programado : 0;
+  avisoSaldo(prog > 0 && kg > prog * 0.20
+    ? `¿Seguro? Son ${formatKg(kg)} kg sobre ${formatKg(prog)} kg programados de ${orden}. Si es correcto, déjalo así.`
+    : "");
+
+  clearTimeout(saldoTimer);
+  saldoTimer = setTimeout(() => guardarSaldo(orden, kg), 900);
+}
+
+async function guardarSaldo(orden, kg) {
+  // Un guardado a la vez: si el usuario sigue escribiendo, el ultimo valor
+  // queda en cola y se manda al terminar. Sin esto, dos respuestas fuera de
+  // orden pueden dejar guardado un valor viejo.
+  if (saldoVuelo) { saldoPend = { orden, kg }; return; }
+  saldoVuelo = true;
+  pistaSaldo("Guardando…");
+  try {
+    await api("api/saldos", { method: "POST", body: JSON.stringify({ filas: [{ orden, kg }] }) });
+    SALDOS[orden] = kg;
+    pistaSaldo("Guardado ✓");
+    actualizarResumenSaldo();
+  } catch (err) {
+    pistaSaldo("No se guardó");
+    showToast("No se pudo guardar el saldo: " + err.message);
+  } finally {
+    saldoVuelo = false;
+    if (saldoPend) {
+      const p = saldoPend; saldoPend = null;
+      guardarSaldo(p.orden, p.kg);
+    }
+  }
+}
+
+/* Actualiza el total y la lista SIN repintar el panel: repintarlo mientras el
+   usuario escribe le robaria el foco del campo. */
+function actualizarResumenSaldo() {
+  const n = Object.keys(SALDOS).length;
+  const kg = Object.values(SALDOS).reduce((a, b) => a + (Number(b) || 0), 0);
+  const num = document.querySelector("#saldo-card .num");
+  if (num) num.textContent = n ? formatKg(kg) : "—";
+
+  const lista = document.querySelector(".saldo-lista");
+  const filas = Object.keys(SALDOS).sort().map(os =>
+    `<div class="item"><b>${esc(os)}</b><span class="kg">${formatKg(SALDOS[os])} kg</span></div>`).join("");
+  if (lista) {
+    lista.innerHTML = `<div class="tit">Ya declarado</div>${filas}`;
+  } else if (n) {
+    const pop = document.getElementById("saldo-pop");
+    if (pop) pop.insertAdjacentHTML("beforeend",
+      `<div class="saldo-lista"><div class="tit">Ya declarado</div>${filas}</div>`);
+  }
+}
+
+/* Cerrar el panel: clic fuera o Escape. */
+document.addEventListener("click", e => {
+  if (!saldoPopAbierto()) return;
+  if (e.target.closest("#saldo-wrap")) return;
+  cerrarSaldoPop();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && saldoPopAbierto()) {
+    cerrarSaldoPop();
+    document.getElementById("saldo-card")?.focus();
+  }
+});
 
 /* ------------------------------------------------------------------ */
 /* vista 2: avance por OS                                              */
@@ -1652,6 +1964,7 @@ TABS.forEach(({ tab, vista }) => {
 
 function renderTable() {
   renderStats();
+  renderSaldoCard();
   renderAvance();
   renderGrafico();
   renderGantt();
@@ -1727,19 +2040,9 @@ function renderTable() {
         <td class="check-cell" data-label="Terminada">
           <input type="checkbox" class="estado-check" ${e.finalizado ? "checked" : ""}>
         </td>
-        <td class="saldo-cell" data-label="Saldo de hilo (kg)">
-          <input type="number" min="0" step="0.01"
-                 class="stock-input saldo-input" ${e.finalizado ? "" : "hidden"}
-                 value="${e.saldo_hilo ?? ""}" data-init="${e.saldo_hilo ?? ""}"
-                 placeholder="Opcional"
-                 aria-label="Saldo de hilo en kg de la suborden ${esc(row.subos)}"
-                 title="Hilo aprovechable que te queda en los conos, en kg. Opcional: si lo dejas en blanco, no se declara nada.">
-          <span class="saldo-off" ${e.finalizado ? "hidden" : ""}
-                title="Se habilita al marcar la suborden como terminada.">—</span>
-        </td>
       </tr>
       <tr class="detalle-row" data-detalle="${esc(row.subos)}" hidden>
-        <td colspan="15">${renderGuias(row)}</td>
+        <td colspan="14">${renderGuias(row)}</td>
       </tr>
     `;
   }).join("");
@@ -1801,8 +2104,6 @@ function attachRowHandlers() {
     const estadoCheck = tr.querySelector(".estado-check");
     const fechaLiqInput = tr.querySelector(".fecha-liq-input");
     const fechaIniInput = tr.querySelector(".fecha-ini-input");
-    const saldoInput  = tr.querySelector(".saldo-input");
-    const saldoOff    = tr.querySelector(".saldo-off");
     const badge       = tr.querySelector(".estado-badge");
     const caret       = tr.querySelector(".caret");
     const rowData     = FILAS.find(x => x.subos === subos) || {};
@@ -1814,9 +2115,6 @@ function attachRowHandlers() {
         finalizado: estadoCheck ? estadoCheck.checked : !!(ESTADO[subos] && ESTADO[subos].finalizado),
         fecha_liquidacion: fechaLiqInput.value || null,
         fecha_inicio: fechaIniInput ? (fechaIniInput.value || null) : null,
-        // Se lee del input aunque este oculto: desmarcar "terminada" esconde el
-        // campo, NO borra lo que el tejedor ya habia declarado.
-        saldo_hilo: (saldoInput && saldoInput.value !== "") ? Number(saldoInput.value) : null,
       };
       // El Estado es derivado: se recalcula en vivo al teclear kg o marcar la casilla.
       if (badge) {
@@ -1840,44 +2138,13 @@ function attachRowHandlers() {
       actualizarBtnFechas();
     }
 
-    // El saldo solo tiene sentido cuando la suborden esta terminada: el campo
-    // aparece al marcar la casilla y se esconde al desmarcarla, sin perder lo
-    // escrito (queda en el value del input y en ESTADO).
-    function sincronizarSaldo() {
-      if (!saldoInput) return;
-      const on = !!(estadoCheck && estadoCheck.checked);
-      saldoInput.hidden = !on;
-      if (saldoOff) saldoOff.hidden = on;
-    }
-
     if (rollosInput) rollosInput.addEventListener("input", marcar);
     if (pesoInput) pesoInput.addEventListener("input", marcar);
-    if (estadoCheck) estadoCheck.addEventListener("change", () => { sincronizarSaldo(); marcar(); });
+    // Marcar/desmarcar "terminada" cambia que OS son elegibles para declarar
+    // saldo (§: una OS entra recien cuando TODAS sus subordenes estan marcadas).
+    if (estadoCheck) estadoCheck.addEventListener("change", () => { marcar(); renderSaldos(); });
     if (fechaLiqInput) fechaLiqInput.addEventListener("input", marcar);
     if (fechaIniInput) fechaIniInput.addEventListener("input", marcar);
-    if (saldoInput) {
-      saldoInput.addEventListener("input", marcar);
-      // Las revisiones van en "change" (al salir del campo), no en cada tecla:
-      // escribir "40" pasa por "4" y no tiene sentido opinar a medio numero.
-      saldoInput.addEventListener("change", () => {
-        const v = saldoInput.value === "" ? null : Number(saldoInput.value);
-        if (v != null && (!Number.isFinite(v) || v < 0)) {
-          showToast("El saldo de hilo no puede ser negativo.");
-          saldoInput.value = saldoInput.dataset.init || "";
-          marcar();
-          return;
-        }
-        marcar();
-        // Aviso por dedazo (400 en vez de 40). Es SOLO un aviso: un taller puede
-        // reciclar saldos de varias subordenes y cargarlos todos en una, y eso
-        // es valido. Nunca bloquea el envio.
-        const prog = Number(rowData.programado) || 0;
-        if (v != null && prog > 0 && v > prog * 0.20) {
-          showToast(`¿Seguro? Declaras ${formatKg(v)} kg de saldo sobre ${formatKg(prog)} kg programados. `
-                    + "Si es correcto, continúa.");
-        }
-      });
-    }
 
     if (caret) {
       caret.addEventListener("click", () => {
@@ -1938,26 +2205,8 @@ document.getElementById("fechas-btn").addEventListener("click", async function (
   }
 });
 
-/* Saldos de hilo que CAMBIARON respecto a lo declarado. Solo esos viajan: si se
-   mandara el saldo vigente en cada reporte, `declarado_en` dejaria de significar
-   "cuando lo declaro" y pasaria a ser la fecha del ultimo envio. */
-function saldosCambiados() {
-  const out = {};
-  document.querySelectorAll("#table-body tr[data-subos] .saldo-input").forEach(inp => {
-    if (inp.value === (inp.dataset.init || "")) return;
-    const v = inp.value === "" ? null : Number(inp.value);
-    // Vaciar el campo no retira la declaracion (no se borran filas): para eso el
-    // tejedor escribe 0, y asi queda constancia de que declaro.
-    if (v == null || !Number.isFinite(v) || v < 0) return;
-    out[inp.closest("tr").dataset.subos] = v;
-  });
-  return out;
-}
-
 document.getElementById("enviar-btn").addEventListener("click", async function () {
   const btn = this;
-
-  const saldos = saldosCambiados();
 
   // Las cerradas por el admin ya no se reportan: no aparecen en la vista del tejedor.
   const filas = FILAS.filter(f => !f.cerrada).map(f => ({
@@ -1967,19 +2216,15 @@ document.getElementById("enviar-btn").addEventListener("click", async function (
     finalizado: ESTADO[f.subos].finalizado,
     fecha_liquidacion: ESTADO[f.subos].fecha_liquidacion,
     fecha_inicio: ESTADO[f.subos].fecha_inicio,
-    // null (lo normal) = "no declaro nada nuevo": el backend no toca su fila.
-    saldo_hilo: f.subos in saldos ? saldos[f.subos] : null,
   }));
 
-  const nSaldos = Object.keys(saldos).length;
   const conDatos = filas.filter(f =>
     f.rollos != null || f.peso != null || f.finalizado || f.fecha_liquidacion);
-  if (conDatos.length === 0 && nSaldos === 0) {
+  if (conDatos.length === 0) {
     showToast("No hay nada que reportar todavía.");
     return;
   }
-  const extra = nSaldos ? `\nIncluye ${nSaldos} declaración(es) de saldo de hilo.` : "";
-  if (!confirm(`Vas a enviar el reporte de ${filas.length} subórdenes.${extra} ¿Confirmas?`)) return;
+  if (!confirm(`Vas a enviar el reporte de ${filas.length} subórdenes. ¿Confirmas?`)) return;
 
   btn.disabled = true;
   btn.textContent = "Enviando…";
@@ -1988,8 +2233,7 @@ document.getElementById("enviar-btn").addEventListener("click", async function (
       method: "POST",
       body: JSON.stringify({ filas }),
     });
-    showToast(`Reporte #${r.vez} enviado · ${r.filas} subórdenes`
-              + (r.saldos ? ` · ${r.saldos} saldo(s) de hilo` : ""));
+    showToast(`Reporte #${r.vez} enviado · ${r.filas} subórdenes`);
     await cargarStock();
   } catch (err) {
     showToast("Error: " + err.message);
