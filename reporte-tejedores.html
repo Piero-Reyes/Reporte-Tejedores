@@ -196,10 +196,6 @@
   }
   .admin-sel select:focus{ outline:none; border-color:var(--red);
                            box-shadow:0 0 0 3px rgba(225,29,46,.14); }
-  .admin-link{ margin-left:auto; font-size:13px; font-weight:600;
-               color:var(--red); text-decoration:none; }
-  .admin-link:hover{ text-decoration:underline; }
-
   /* modo lectura (admin): inputs deshabilitados se ven como texto, no como campos */
   .solo-lectura .stock-input{
     border-color:transparent; background:transparent; padding-left:0;
@@ -532,6 +528,8 @@
   .modal select:focus, .modal .kg-input:focus{
     outline:none; border-color:var(--amber); box-shadow:0 0 0 3px rgba(245,158,11,.18);
   }
+  /* Mientras no se elige OS el campo no acepta nada, y tiene que verse. */
+  .modal .kg-input:disabled{ background:#F1F5F9; color:var(--muted-soft); cursor:not-allowed; }
   .modal .campo{ margin-bottom:14px; }
   .modal .aviso{
     font-size:12.5px; line-height:1.45; margin-top:9px;
@@ -560,6 +558,58 @@
     font-style:normal; font-size:11px; font-weight:700; color:#B45309;
     background:var(--amber-soft); border-radius:5px; padding:1px 6px; margin-left:6px;
   }
+
+  /* ---------------------------------------------------------- */
+  /* ACCESOS (pestana solo del admin)                            */
+  /* ---------------------------------------------------------- */
+  .acc-grid{ display:grid; grid-template-columns:340px 1fr; gap:22px; align-items:start; }
+  @media (max-width:860px){ .acc-grid{ grid-template-columns:1fr; } }
+
+  .acc-card{
+    background:var(--card); border:1px solid var(--line);
+    border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;
+  }
+  .acc-card-head{
+    padding:16px 18px; border-bottom:1px solid var(--line); background:#FAFBFD;
+  }
+  .acc-card-head h3{ margin:0; font-size:15px; font-family:'Poppins',sans-serif; font-weight:600; }
+  .acc-card-body{ padding:18px; }
+
+  .acc-field{ margin-bottom:16px; }
+  .acc-field label{
+    display:block; font-size:12.5px; font-weight:600; color:#334155; margin-bottom:6px;
+  }
+  .acc-field input, .acc-field select{
+    width:100%; padding:11px 13px; border-radius:9px; border:1.5px solid var(--line);
+    background:#FBFCFE; font-size:14.5px; font-family:inherit; color:var(--ink);
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .acc-field input:focus, .acc-field select:focus{
+    outline:none; border-color:var(--red); box-shadow:0 0 0 3px rgba(225,29,46,.15);
+  }
+  .acc-field input:disabled{ background:#F1F5F9; color:var(--muted); }
+  .acc-cancelar{ width:100%; margin-top:9px; }
+  .acc-cancelar[hidden]{ display:none; }
+  .acc-hint{ font-size:12px; color:var(--muted-soft); margin:10px 0 0; line-height:1.5; }
+
+  /* Avisos de alta/edicion/borrado. Se ocultan solos a los 4s. */
+  .alerta{ display:none; font-size:13px; padding:9px 12px; border-radius:8px; margin-bottom:16px; }
+  .alerta.err{ display:block; background:var(--red-soft); color:var(--red); border:1px solid #FBD5D9; }
+  .alerta.ok{ display:block; background:var(--green-soft); color:#15803D; border:1px solid #BEDCC3; }
+
+  .acc-tabla td.taller-cell{ font-weight:700; color:var(--ink); text-align:left; }
+  .acc-tabla .acciones{ text-align:right; white-space:nowrap; }
+  .pill{ display:inline-block; font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; }
+  .pill.on{ background:var(--green-soft); color:#15803D; }
+  .pill.off{ background:#F1F5F9; color:var(--muted-soft); }
+  .mini{
+    background:transparent; border:1.5px solid var(--line); color:#475569;
+    padding:5px 10px; font-size:12px; border-radius:7px; cursor:pointer;
+    font-family:inherit; font-weight:600;
+  }
+  .mini:hover{ border-color:#CBD5E1; background:#F8FAFC; }
+  .mini.del{ color:var(--red); }
+  .mini.del:hover{ background:var(--red-soft); border-color:#FBD5D9; }
 
   .table-card{
     background:var(--card);
@@ -756,7 +806,6 @@
     .admin-bar{ gap:12px; padding:12px 14px; }
     .admin-sel{ width:100%; }
     .admin-sel select{ flex:1; min-width:0; }
-    .admin-link{ margin-left:0; }
 
     /* pestanas: que ocupen el ancho */
     .tabs{ gap:0; }
@@ -879,13 +928,16 @@
         Taller
         <select id="admin-taller"></select>
       </label>
-      <a href="admin" class="admin-link">Gestionar accesos →</a>
     </div>
 
     <div class="tabs" role="tablist">
       <button class="tab" id="tab-stock"  role="tab" aria-selected="true"  aria-controls="vista-stock">Reporte de Stock</button>
       <button class="tab" id="tab-avance" role="tab" aria-selected="false" aria-controls="vista-avance">Avance por OS</button>
       <button class="tab" id="tab-gantt"  role="tab" aria-selected="false" aria-controls="vista-gantt">Cronograma</button>
+      <!-- Solo para el admin: se muestra desde JS segun el rol que devuelve
+           /api/stock. Un tejedor nunca la ve, y aunque forzara el hidden, los
+           endpoints de /api/admin exigen un token de administrador. -->
+      <button class="tab" id="tab-accesos" role="tab" aria-selected="false" aria-controls="vista-accesos" hidden>Accesos</button>
     </div>
 
     <!-- ======================= VISTA 1: REPORTE DE STOCK ======================= -->
@@ -1004,6 +1056,57 @@
       </div>
       <div id="gantt-tip" class="gantt-tip" hidden></div>
     </div><!-- /vista-gantt -->
+
+    <!-- ======================= VISTA 4: ACCESOS (solo admin) ======================= -->
+    <div class="vista" id="vista-accesos" role="tabpanel" aria-labelledby="tab-accesos" hidden>
+
+      <h2 class="section-title">Accesos de tejedores</h2>
+      <p class="section-sub">Cada cuenta queda atada a un taller. El portal deriva el taller de la sesión,
+        así que un tejedor solo puede ver y reportar lo suyo.</p>
+
+      <div id="acc-alerta" class="alerta"></div>
+
+      <div class="acc-grid">
+        <div class="acc-card">
+          <div class="acc-card-head"><h3 id="acc-form-titulo">Nuevo tejedor</h3></div>
+          <div class="acc-card-body">
+            <form id="acc-form">
+              <div class="acc-field">
+                <label for="acc-usuario">Usuario</label>
+                <input id="acc-usuario" type="text" placeholder="Ej. famicotton" autocomplete="off" required>
+              </div>
+              <div class="acc-field">
+                <label for="acc-taller">Taller</label>
+                <select id="acc-taller" required></select>
+              </div>
+              <div class="acc-field">
+                <label for="acc-clave">Contraseña</label>
+                <input id="acc-clave" type="text" placeholder="—" autocomplete="new-password">
+              </div>
+              <button type="submit" class="btn btn-primary">Guardar</button>
+              <button type="button" class="btn btn-sec acc-cancelar" id="acc-cancelar" hidden>Cancelar edición</button>
+            </form>
+            <p class="acc-hint">Al editar, deja la contraseña vacía para no cambiarla.</p>
+          </div>
+        </div>
+
+        <div class="acc-card">
+          <div class="acc-card-head"><h3>Cuentas existentes</h3></div>
+          <div class="table-scroll">
+            <table class="acc-tabla">
+              <thead>
+                <tr><th>Usuario</th><th>Taller</th><th>Estado</th><th></th></tr>
+              </thead>
+              <tbody id="acc-tbody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="acc-empty" style="display:none;">
+            Todavía no hay cuentas de tejedor.
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /vista-accesos -->
 
   </div>
 </div>
@@ -1160,6 +1263,8 @@ document.getElementById("logout-btn").addEventListener("click", function () {
   // Deja la UI lista por si el proximo login es de otro rol.
   document.getElementById("admin-bar").hidden = true;
   document.getElementById("hello-pill").hidden = false;
+  document.getElementById("tab-accesos").hidden = true;
+  limpiarAcceso();
   dashboard.classList.remove("solo-lectura");
   dashboard.style.display = "none";
   loginScreen.style.display = "flex";
@@ -1212,6 +1317,9 @@ async function cargarStock() {
 function prepararAdmin(talleres) {
   document.getElementById("admin-bar").hidden = false;
   document.getElementById("hello-pill").hidden = true;
+  // La gestion de cuentas es del admin: la pestana aparece con el rol, no con
+  // una URL aparte. Antes era /admin, una pagina con su propio login.
+  document.getElementById("tab-accesos").hidden = false;
 
   const sel = document.getElementById("admin-taller");
   sel.innerHTML = `<option value="">Elige un taller…</option>` +
@@ -1344,14 +1452,15 @@ function renderSaldoCard() {
   // El admin no declara: su visor es de lectura y las correcciones posteriores
   // al cierre las hace Mecsa desde su propia vista.
   if (!SALDO_ACTIVO || ROL === "admin") { slot.innerHTML = ""; return; }
+  // Sin el total de kg a proposito: el numero que cuenta es el de cada OS, y
+  // sumarlos en la tarjeta no significa nada para el taller (los puchos se
+  // reciclan entre OS). La tarjeta es una accion, no un indicador.
   const n = Object.keys(SALDOS).length;
-  const kg = Object.values(SALDOS).reduce((a, b) => a + (Number(b) || 0), 0);
   slot.innerHTML = `
     <button type="button" class="saldo-card" id="saldo-card"
             aria-haspopup="dialog" aria-controls="saldo-modal"
             title="Declara los kg de hilo que te sobraron en los conos, por OS.">
       <span>
-        ${n ? `<span class="num mono">${formatKg(kg)}</span>` : ""}
         <span class="lbl">Saldo de hilo (kg)</span>
         <span class="hint" id="saldo-hint">${n ? `${n} OS declarada${n > 1 ? "s" : ""} · toca para editar`
                                                : "Toca para declarar"}</span>
@@ -1429,13 +1538,17 @@ function pintarSaldoModal(osPre = null) {
       ${lista}`;
     pie.innerHTML = `<button type="button" class="btn btn-sec" id="saldo-cancelar">Cerrar</button>`;
   } else {
-    const sel = osPre && elegibles.some(o => o.os === osPre) ? osPre : elegibles[0].os;
+    // Arranca SIN OS elegida y con el campo vacio: la ventana se abre limpia,
+    // no con la primera de la lista ya puesta. `osPre` solo entra al refrescar
+    // sin cerrar (marcaron una casilla), para no perder el sitio.
+    const sel = osPre && elegibles.some(o => o.os === osPre) ? osPre : "";
     cuerpo.innerHTML = `
       <p class="sub">Los kg de hilo aprovechable que te quedaron en los conos, por OS.
         Elige la OS, escribe los kg y pulsa Guardar.</p>
       <div class="campo">
         <label for="saldo-os">Orden de servicio</label>
         <select id="saldo-os">
+          <option value="" ${sel ? "" : "selected"}>Elige una OS…</option>
           ${elegibles.map(o => {
             const kg = PENDIENTES[o.os] !== undefined ? PENDIENTES[o.os] : SALDOS[o.os];
             return `<option value="${esc(o.os)}" ${o.os === sel ? "selected" : ""}
@@ -1457,15 +1570,20 @@ function pintarSaldoModal(osPre = null) {
     const selOs = cuerpo.querySelector("#saldo-os");
     const inKg = cuerpo.querySelector("#saldo-kg");
 
-    // Al cambiar de OS se muestra lo pendiente si lo hay, si no lo ya guardado.
-    const cargar = () => {
+    // Sin OS elegida no hay nada que escribir, asi que el campo va deshabilitado
+    // y vacio. Al elegirla se muestra lo pendiente si lo hay, y si no lo ya
+    // guardado: asi se corrige una declaracion anterior sin tener que recordarla.
+    const cargar = (foco = false) => {
       const os = selOs.value;
+      inKg.disabled = !os;
+      avisoSaldo("");
+      if (!os) { inKg.value = ""; return; }
       const kg = PENDIENTES[os] !== undefined ? PENDIENTES[os] : SALDOS[os];
       inKg.value = kg != null ? kg : "";
-      avisoSaldo("");
+      if (foco) inKg.focus();
     };
     cargar();
-    selOs.addEventListener("change", cargar);
+    selOs.addEventListener("change", () => cargar(true));
     inKg.addEventListener("input", () => anotarSaldo(selOs.value, inKg));
     document.getElementById("saldo-guardar").addEventListener("click", guardarSaldos);
   }
@@ -1505,6 +1623,7 @@ function actualizarListaSaldos() {
 
 /* Anota el valor escrito SIN mandarlo: solo valida y avisa. */
 function anotarSaldo(orden, input) {
+  if (!orden) return;            // sin OS elegida no hay nada que anotar
   const crudo = input.value.trim();
   if (crudo === "") {            // vacio = no declara nada para esta OS
     delete PENDIENTES[orden];
@@ -2021,9 +2140,10 @@ function attachGanttHandlers() {
 })();
 
 const TABS = [
-  { tab: "tab-stock",  vista: "vista-stock" },
-  { tab: "tab-avance", vista: "vista-avance" },
-  { tab: "tab-gantt",  vista: "vista-gantt" },
+  { tab: "tab-stock",   vista: "vista-stock" },
+  { tab: "tab-avance",  vista: "vista-avance" },
+  { tab: "tab-gantt",   vista: "vista-gantt" },
+  { tab: "tab-accesos", vista: "vista-accesos" },
 ];
 TABS.forEach(({ tab, vista }) => {
   document.getElementById(tab).addEventListener("click", () => {
@@ -2032,7 +2152,123 @@ TABS.forEach(({ tab, vista }) => {
       document.getElementById(t.tab).setAttribute("aria-selected", String(activa));
       document.getElementById(t.vista).hidden = !activa;
     });
+    // La lista se recarga al entrar: si se creo una cuenta desde otra sesion,
+    // no tiene sentido mostrar la foto de hace media hora.
+    if (tab === "tab-accesos") cargarAccesos();
   });
+});
+
+/* ------------------------------------------------------------------ */
+/* accesos de tejedores (pestana solo del admin)                       */
+/* ------------------------------------------------------------------ */
+/* Antes vivia en admin.html, en /admin. Era una pagina aparte con su propio
+   login, su propio CSS y su propio helper de API, cuando el portal ya resuelve
+   el rol por credenciales: un admin que entra por / ya ve el selector de
+   talleres y las vistas en solo lectura. Un solo enlace y una sola sesion. */
+
+let ACC_EDITANDO = null;   // usuario que se esta editando, o null si es un alta
+
+function accAlerta(msg, tipo) {
+  const el = document.getElementById("acc-alerta");
+  el.textContent = msg;
+  el.className = "alerta " + tipo;
+  clearTimeout(accAlerta._t);
+  accAlerta._t = setTimeout(() => { el.className = "alerta"; }, 4000);
+}
+
+async function cargarAccesos() {
+  let r;
+  try {
+    r = await api("api/admin/tejedores");
+  } catch (err) {
+    accAlerta(err.message, "err");
+    return;
+  }
+
+  const sel = document.getElementById("acc-taller");
+  // Conserva la seleccion: recargar la lista no debe vaciar el formulario.
+  const antes = sel.value;
+  sel.innerHTML = `<option value="">Elige un taller…</option>` + r.talleres.map(t =>
+    `<option value="${esc(t.codigo)}">${esc(t.codigo)} — ${esc(t.nombre || "?")} (${t.pendientes} pend.)</option>`
+  ).join("");
+  if (antes) sel.value = antes;
+
+  const tbody = document.getElementById("acc-tbody");
+  const vacio = document.getElementById("acc-empty");
+  if (!r.usuarios.length) {
+    tbody.innerHTML = "";
+    vacio.style.display = "block";
+    return;
+  }
+  vacio.style.display = "none";
+  tbody.innerHTML = r.usuarios.map(u => `
+    <tr>
+      <td><strong>${esc(u.usuario)}</strong></td>
+      <td class="taller-cell">${esc(u.taller)}</td>
+      <td><span class="pill ${u.activo ? "on" : "off"}">${u.activo ? "Activo" : "Inactivo"}</span></td>
+      <td class="acciones">
+        <button class="mini" data-edit="${esc(u.usuario)}" data-taller="${esc(u.taller)}">Editar</button>
+        <button class="mini del" data-del="${esc(u.usuario)}">Borrar</button>
+      </td>
+    </tr>`).join("");
+
+  tbody.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => {
+    ACC_EDITANDO = b.dataset.edit;
+    const usr = document.getElementById("acc-usuario");
+    usr.value = ACC_EDITANDO;
+    usr.disabled = true;                  // el usuario es la llave: no se renombra
+    document.getElementById("acc-taller").value = b.dataset.taller;
+    document.getElementById("acc-clave").value = "";
+    document.getElementById("acc-form-titulo").textContent = "Editar " + ACC_EDITANDO;
+    document.getElementById("acc-cancelar").hidden = false;
+    document.getElementById("vista-accesos").scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
+
+  tbody.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", async () => {
+    const u = b.dataset.del;
+    if (!confirm(`¿Borrar el acceso de "${u}"? El tejedor ya no podrá reportar.`)) return;
+    try {
+      await api("api/admin/tejedores/eliminar", {
+        method: "POST", body: JSON.stringify({ usuario: u }),
+      });
+      accAlerta(`Acceso de "${u}" eliminado.`, "ok");
+      if (ACC_EDITANDO === u) limpiarAcceso();   // se estaba editando el que se borro
+      await cargarAccesos();
+    } catch (err) { accAlerta(err.message, "err"); }
+  }));
+}
+
+function limpiarAcceso() {
+  ACC_EDITANDO = null;
+  const usr = document.getElementById("acc-usuario");
+  usr.value = "";
+  usr.disabled = false;
+  document.getElementById("acc-taller").value = "";
+  document.getElementById("acc-clave").value = "";
+  document.getElementById("acc-form-titulo").textContent = "Nuevo tejedor";
+  document.getElementById("acc-cancelar").hidden = true;
+}
+
+document.getElementById("acc-cancelar").addEventListener("click", limpiarAcceso);
+
+document.getElementById("acc-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const usuario = document.getElementById("acc-usuario").value.trim();
+  const taller  = document.getElementById("acc-taller").value;
+  const clave   = document.getElementById("acc-clave").value;
+
+  if (!taller) { accAlerta("Elige un taller.", "err"); return; }
+  if (!ACC_EDITANDO && !clave) { accAlerta("Un usuario nuevo necesita contraseña.", "err"); return; }
+
+  try {
+    const r = await api("api/admin/tejedores", {
+      method: "POST",
+      body: JSON.stringify({ usuario, taller, clave: clave || null, activo: true }),
+    });
+    accAlerta(`"${r.usuario}" ${r.accion} · taller ${r.taller}`, "ok");
+    limpiarAcceso();
+    await cargarAccesos();
+  } catch (err) { accAlerta(err.message, "err"); }
 });
 
 /* ------------------------------------------------------------------ */

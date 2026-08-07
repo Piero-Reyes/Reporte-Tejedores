@@ -131,8 +131,11 @@ with sync_playwright() as p:
         return pg.locator(f'#table-body tr[data-subos="{subos}"] .estado-check')
 
     def opciones():
+        """Las OS elegibles, sin el marcador 'Elige una OS...' del principio."""
         sel = pg.locator("#saldo-os")
-        return sel.locator("option").all_text_contents() if sel.count() else []
+        if not sel.count():
+            return []
+        return [o for o in sel.locator("option").all_text_contents() if not o.startswith("Elige")]
 
     print("\n--- la tabla ya NO tiene columna de saldo ---")
     check("14 columnas en el encabezado",
@@ -143,8 +146,10 @@ with sync_playwright() as p:
 
     print("\n--- la tarjeta ---")
     check("existe y esta a la derecha", pg.locator("#saldo-card").is_visible())
-    check("muestra el total ya declarado", "40.50" in pg.locator("#saldo-card .num").inner_text(),
-          pg.locator("#saldo-card .num").inner_text())
+    check("NO muestra el total de kg", pg.locator("#saldo-card .num").count() == 0)
+    check("informa cuantas OS hay declaradas",
+          "1 OS declarada" in pg.locator("#saldo-hint").inner_text(),
+          pg.locator("#saldo-hint").inner_text())
 
     print("\n--- la ventana ---")
     check("arranca cerrada", pg.locator("#saldo-modal").is_hidden())
@@ -163,8 +168,15 @@ with sync_playwright() as p:
     print("\n--- solo aparecen OS con TODAS sus subordenes terminadas ---")
     ops = opciones()
     check("solo TRI1801 (la unica completa)", len(ops) == 1 and ops[0].startswith("TRI1801"), str(ops))
-    check("pre-carga los 40.5 ya declarados", pg.locator("#saldo-kg").input_value() == "40.5",
-          pg.locator("#saldo-kg").input_value())
+    check("arranca SIN OS elegida", pg.locator("#saldo-os").input_value() == "",
+          repr(pg.locator("#saldo-os").input_value()))
+    check("y con el campo de kg vacio", pg.locator("#saldo-kg").input_value() == "",
+          repr(pg.locator("#saldo-kg").input_value()))
+    check("el campo esta deshabilitado hasta elegir OS", pg.locator("#saldo-kg").is_disabled())
+    pg.select_option("#saldo-os", "TRI1801")
+    check("al elegir OS se habilita", pg.locator("#saldo-kg").is_enabled())
+    check("y trae los 40.5 ya declarados (para corregirlos)",
+          pg.locator("#saldo-kg").input_value() == "40.5", pg.locator("#saldo-kg").input_value())
 
     print("\n--- TRI1802 tiene DOS subordenes: con una no basta ---")
     # La ventana es modal y bloquea la tabla, asi que hay que cerrarla para
@@ -208,8 +220,9 @@ with sync_playwright() as p:
               SALDOS_POST[0]["filas"] == [{"orden": "TRI1802", "kg": 150}],
               json.dumps(SALDOS_POST[0]["filas"]))
     check("la ventana se cierra al guardar", pg.locator("#saldo-modal").is_hidden())
-    check("y el total sube a 190.50", "190.50" in pg.locator("#saldo-card .num").inner_text(),
-          pg.locator("#saldo-card .num").inner_text())
+    check("la tarjeta pasa a 2 OS declaradas",
+          "2 OS declaradas" in pg.locator("#saldo-hint").inner_text(),
+          pg.locator("#saldo-hint").inner_text())
 
     print("\n--- varias OS en un solo guardado ---")
     SALDOS_POST.clear()
@@ -226,8 +239,12 @@ with sync_playwright() as p:
           len(SALDOS_POST) == 1 and len(SALDOS_POST[0]["filas"]) == 2,
           json.dumps(SALDOS_POST[0]["filas"]) if SALDOS_POST else "nada")
 
-    print("\n--- al volver a abrir, conserva lo guardado ---")
+    print("\n--- al volver a abrir, limpia otra vez ---")
     pg.click("#saldo-card")
+    check("sigue abriendo sin OS elegida", pg.locator("#saldo-os").input_value() == "",
+          repr(pg.locator("#saldo-os").input_value()))
+    check("y con los kg vacios", pg.locator("#saldo-kg").input_value() == "",
+          repr(pg.locator("#saldo-kg").input_value()))
     pg.select_option("#saldo-os", "TRI1801")
     check("TRI1801 mantiene sus 10", pg.locator("#saldo-kg").input_value() == "10",
           pg.locator("#saldo-kg").input_value())
@@ -288,6 +305,8 @@ with sync_playwright() as p:
     pg.reload()
     pg.wait_for_selector("#table-body tr[data-subos]")
     check("no muestra ninguna cifra", pg.locator("#saldo-card .num").count() == 0)
+    check("invita a declarar", "Toca para declarar" in pg.locator("#saldo-hint").inner_text(),
+          pg.locator("#saldo-hint").inner_text())
     # El CSS lo pone en mayusculas (text-transform), igual que los otros
     # indicadores, asi que la comparacion va sin distinguir mayusculas.
     check("si muestra el titulo",
@@ -299,10 +318,10 @@ with sync_playwright() as p:
     pg.fill("#saldo-kg", "25")
     pg.click("#saldo-guardar")
     pg.wait_for_timeout(600)
-    check("tras guardar aparece el total",
-          pg.locator("#saldo-card .num").count() == 1
-          and "25.00" in pg.locator("#saldo-card .num").inner_text(),
-          pg.locator("#saldo-card .num").inner_text() if pg.locator("#saldo-card .num").count() else "(sin cifra)")
+    check("tras guardar la tarjeta lo refleja",
+          "1 OS declarada" in pg.locator("#saldo-hint").inner_text(),
+          pg.locator("#saldo-hint").inner_text())
+    check("y sigue sin mostrar kg", pg.locator("#saldo-card .num").count() == 0)
 
     print("\n--- errores de JavaScript ---")
     check("ninguno", not errores, "; ".join(errores[:3]))
